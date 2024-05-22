@@ -12,15 +12,15 @@ class User:
     registration_date: str
     premium_expiry_date: str
     last_active: str
-    notification_settings: Dict[str, bool]
+    notification_settings: Dict[str, bool] = field(default_factory=dict)
 
 
 @dataclass
 class Group:
     group_oid: str
     name: str
-    description: str
-    members: List['GroupMember']
+    description: str = "No description"
+    members: List['GroupMember'] = field(default_factory=list)
 
 
 @dataclass
@@ -40,18 +40,18 @@ class Task:
     status: str
     creator_id: str
     assigned_to: List[str]
-    due_date: str
+    deadline: str
     last_updated: str
     recurring: str
     completion_date: str
 
 
 @dataclass
-class FinanceManager:
-    finance_manager_id: str
+class Financial:
+    financial_oid: str
     group_oid: str
     categories: List['Category']
-    reset_date: str
+    reset_day: str
 
 
 @dataclass
