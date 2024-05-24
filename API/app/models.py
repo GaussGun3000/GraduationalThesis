@@ -38,7 +38,7 @@ class Task:
     title: str
     description: str
     status: str
-    creator_id: str
+    creator_oid: str
     assigned_to: List[str]
     deadline: str
     last_updated: str

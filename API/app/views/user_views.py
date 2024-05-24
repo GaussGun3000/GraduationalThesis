@@ -46,6 +46,14 @@ def get_user_by_oid(user_oid):
         return jsonify({"error": "User not found"}), 404
 
 
+@user_blueprint.route('/user/tid_list', methods=['GET'])
+@token_required
+def get_all_user_tids():
+    users = current_app.db.Users.find({}, {"user_tid": 1})
+    user_tids = [user['user_tid'] for user in users]
+    return jsonify({"user_tids": user_tids}), 200
+
+
 @user_blueprint.route('/user', methods=['POST'])
 @token_required
 def create_user():
