@@ -1,4 +1,4 @@
-import requests
+import aiohttp
 from ..config import API_BASE_URL, INTERNAL_API_TOKEN
 from datetime import datetime
 from ..models import User
@@ -9,22 +9,25 @@ HEADERS = {
 }
 
 
-def get_user_id_list():
+async def get_user_id_list():
     url = f"{API_BASE_URL}/user/tid_list"
-    response = requests.get(url, headers=HEADERS)
-    if response.status_code == 200:
-        return response.json().get('user_tids', list())  # Предполагается, что API возвращает список ID
-    return []
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=HEADERS) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data.get('user_tids', list())
+            return []
 
 
-def create_user(user_data):
+async def create_user(user_data):
     url = f"{API_BASE_URL}/user"
-    response = requests.post(url, json=user_data, headers=HEADERS)
-    return response
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=user_data, headers=HEADERS) as response:
+            return response
 
 
-def check_and_create_user(user_tid, user_name):
-    user_ids = get_user_id_list()
+async def check_and_create_user(user_tid, user_name):
+    user_ids = await get_user_id_list()
     if user_tid not in user_ids:
         new_user = User(
             user_oid="",
@@ -37,6 +40,15 @@ def check_and_create_user(user_tid, user_name):
             last_active=datetime.now().isoformat(),
             notification_settings={}
         )
-        response = create_user(new_user.to_request_dict())
-        return response.status_code == 201
+        response = await create_user(new_user.to_request_dict())
+        return response.status == 201
     return True
+
+
+async def get_user_tasks(user_tid):
+    url = f"{API_BASE_URL}/task/user/{user_tid}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=HEADERS) as response:
+            if response.status == 200:
+                return await response.json()
+            return []
