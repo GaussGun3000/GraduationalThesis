@@ -1,5 +1,5 @@
-from telegram import Update
-from telegram.ext import CallbackContext
+from telegram import Update, ReplyKeyboardRemove
+from telegram.ext import CallbackContext, ConversationHandler
 from ..utils.api import check_and_create_user
 
 
@@ -24,3 +24,9 @@ async def help_command(update: Update, context: CallbackContext) -> None:
         # Add other commands as needed
     )
     await update.message.reply_text(help_text)
+
+
+async def cancel(update: Update, context: CallbackContext) -> int:
+    user = update.effective_user
+    await update.message.reply_text(f"Отмена операции", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END

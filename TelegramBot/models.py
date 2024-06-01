@@ -47,7 +47,12 @@ class Task:
     deadline: str
     last_updated: str
     recurring: str
-    completion_date: str
+    completion_date: str = ""
+
+    def to_request_dict(self):
+        data = asdict(self)
+        data.pop('task_oid')
+        return data
 
 
 @dataclass
