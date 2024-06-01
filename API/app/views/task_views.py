@@ -31,6 +31,24 @@ def get_task_by_oid(task_oid):
         return jsonify({"error": "Task not found"}), 404
 
 
+@task_blueprint.route('/task/user/<int:user_tid>', methods=['GET'])
+@token_required
+def get_tasks_by_user_tid(user_tid):
+    # Поиск пользователя по user_tid
+    user = current_app.db.Users.find_one({"user_tid": user_tid}, {"_id": 1})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user_oid = str(user['_id'])
+
+    # Поиск задач, где пользователь указан как исполнитель
+    tasks = list(current_app.db.Tasks.find({"assigned_to": user_oid}))
+    for task in tasks:
+        task['task_oid'] = str(task['_id'])
+        del task['_id']
+    return jsonify(tasks), 200
+
+
 @task_blueprint.route('/task', methods=['POST'])
 @token_required
 def create_task():

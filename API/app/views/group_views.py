@@ -27,6 +27,21 @@ def validate_group_schema(data: dict) -> Group | None:
         return None
 
 
+@group_blueprint.route('/group/<string:group_oid>/admins', methods=['GET'])
+@token_required
+def get_group_admins(group_oid):
+    group = current_app.db.Groups.find_one({"_id": ObjectId(group_oid)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+
+    admins = []
+    for member in group['members']:
+        if member['role'] == 'admin' or member['role'] == 'creator':
+            admins.append(member)
+
+    return jsonify(admins), 200
+
+
 @group_blueprint.route('/group/<string:group_oid>', methods=['GET'])
 @token_required
 def get_group_by_oid(group_oid):
