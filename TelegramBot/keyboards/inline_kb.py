@@ -16,14 +16,32 @@ def task_menu():
 
 
 def task_action_buttons(task: Task, user_id: int):
-    buttons = [[InlineKeyboardButton("Выполнена", callback_data=f'complete_{task.task_oid}')]]
+    buttons = [[InlineKeyboardButton("Выполнена", callback_data=f'task_action_complete')]]
 
     if not task.group_oid:  # personal
-        buttons.append([InlineKeyboardButton("Редактировать", callback_data=f'edit_{task.task_oid}')])
-        buttons.append([InlineKeyboardButton("Удалить", callback_data=f'delete_{task.task_oid}')])
+        buttons.append([InlineKeyboardButton("Редактировать", callback_data=f'task_action_edit')])
+        buttons.append([InlineKeyboardButton("Удалить", callback_data=f'task_action_delete')])
     else:  # group
         if api.is_group_admin(user_id, task.group_oid):
-            buttons.append([InlineKeyboardButton("Редактировать", callback_data=f'edit_{task.task_oid}')])
-            buttons.append([InlineKeyboardButton("Удалить", callback_data=f'delete_{task.task_oid}')])
+            buttons.append([InlineKeyboardButton("Редактировать", callback_data=f'task_action_edit')])
+            buttons.append([InlineKeyboardButton("Удалить", callback_data=f'task_action_delete')])
 
     return InlineKeyboardMarkup(buttons)
+
+
+def confirmation_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Да", callback_data='task_confirm_yes')],
+        [InlineKeyboardButton("Изменить", callback_data='task_confirm_edit')]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def edit_options_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Название", callback_data='task_edit_title')],
+        [InlineKeyboardButton("Описание", callback_data='task_edit_description')],
+        [InlineKeyboardButton("Дедлайн", callback_data='task_edit_deadline')],
+        [InlineKeyboardButton("Периодичность", callback_data='task_edit_recurring')]
+    ]
+    return InlineKeyboardMarkup(keyboard)

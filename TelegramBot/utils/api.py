@@ -89,5 +89,11 @@ async def create_task(task: Task):
         return response
 
 
+async def delete_task(task_oid: str) -> bool:
+    url = f"{API_BASE_URL}/task/{task_oid}"
+    async with session.delete(url, headers=HEADERS) as response:
+        return response.status == 200
+
+
 async def close_session():
     await session.close()
