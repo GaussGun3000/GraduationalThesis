@@ -3,7 +3,7 @@ from dataclasses import asdict
 import aiohttp
 from ..config import API_BASE_URL, INTERNAL_API_TOKEN
 from datetime import datetime
-from ..models import User, Task
+from ..models import User, Task, Category, Expense, Financial
 
 HEADERS = {
     "Authorization": f"Bearer {INTERNAL_API_TOKEN}"
@@ -93,6 +93,76 @@ async def delete_task(task_oid: str) -> bool:
     url = f"{API_BASE_URL}/task/{task_oid}"
     async with session.delete(url, headers=HEADERS) as response:
         return response.status == 200
+
+
+async def get_financial_info(user_id: int) -> Financial | None:
+    url = f"{API_BASE_URL}/financial/user/{user_id}"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            data = await response.json()
+            if not data:
+                return None
+            categories = [Category(
+                category_id=category['category_id'],
+                name=category['name'],
+                description=category['description'],
+                budget_limit=category['budget_limit'],
+                expenses=[Expense(**expense) for expense in category['expenses']]
+            ) for category in data['categories']]
+            return Financial(
+                financial_oid=data['financial_oid'],
+                categories=categories,
+                reset_day=data['reset_day'],
+                group_oid=data.get('group_oid', ''),
+                user_oid=data.get('user_oid', '')
+            )
+        else:
+            return None
+
+
+async def create_financial(fin: Financial) -> str | None:
+    url = f"{API_BASE_URL}/financial"
+    async with session.post(url, json=fin.to_request_dict(), headers=HEADERS) as response:
+        data = await response.json()
+        if not data:
+            return None
+        return data.get('financial_oid')
+
+
+async def update_reset_day(financial: Financial, reset_day: int) -> bool:
+    url = f"{API_BASE_URL}/financial/{financial.financial_oid}"
+    financial.reset_day = reset_day
+    async with session.put(url, json=financial.to_request_dict(), headers=HEADERS) as response:
+        return response.status == 200
+
+
+async def create_category(financial: Financial, category: Category) -> bool:
+    url = f"{API_BASE_URL}/financial/{financial.financial_oid}/category"
+    data = category.to_request_dict()
+    async with session.post(url, json=data, headers=HEADERS) as response:
+        return response.status == 201
+
+
+async def update_category(financial_info: Financial, old_name: str, old_description: str, updated_category: Category) -> bool:
+    url = f"{API_BASE_URL}/financial/{financial_info.financial_oid}/category"
+    data = {
+        "old_name": old_name,
+        "old_description": old_description,
+        "updated_category": updated_category.to_request_dict()
+    }
+    async with session.put(url, json=data, headers=HEADERS) as response:
+        return response.status == 200
+
+
+async def create_expense(financial_oid: str, category: Category, expense: Expense) -> bool:
+    url = f"{API_BASE_URL}/financial/{financial_oid}/category/expense"
+    data = {
+        "category_name": category.name,
+        "category_description": category.description,
+        "expense": expense.to_request_dict()
+    }
+    async with session.post(url, json=data, headers=HEADERS) as response:
+        return response.status == 201
 
 
 async def close_session():

@@ -6,11 +6,12 @@ from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, CommandHandler, filters, \
     CallbackQueryHandler
 
+from .basic_commands import cancel
 from ..utils.api import get_user_tasks, update_task, create_task, get_user, delete_task
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard
-from ..keyboards.inline_kb import task_menu, task_action_buttons, confirmation_keyboard, edit_options_keyboard
+from ..keyboards.inline_kb import task_menu, task_action_buttons, confirmation_keyboard, edit_task_options_keyboard
 from ..models import Task
 
 db_to_user_recurring_map = {
@@ -188,7 +189,7 @@ async def edit_task_action(update: Update, context: CallbackContext) -> int:
         await cancel(update, context)
         return ConversationHandler.END
 
-    await update.effective_user.send_message("Что вы хотите изменить?", reply_markup=edit_options_keyboard())
+    await update.effective_user.send_message("Что вы хотите изменить?", reply_markup=edit_task_options_keyboard())
     context.user_data['editing_task'] = True
     context.user_data['new_task'] = dict()
     return SELECT_EDIT_OPTION
@@ -329,7 +330,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
     elif query.data == 'task_confirm_edit':
         await query.message.delete()
-        edit_message = await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_options_keyboard())
+        edit_message = await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_task_options_keyboard())
         context.user_data['edit_message_id'] = edit_message.message_id
         return SELECT_EDIT_OPTION
 
@@ -398,23 +399,8 @@ async def handle_edit_confirmation(update: Update, context: CallbackContext) -> 
         return ConversationHandler.END
     elif query.data == 'task_confirm_edit':
         await query.message.delete()
-        edit_message = await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_options_keyboard())
-        context.user_data['edit_message_id'] = edit_message.message_id
+        edit_message = await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_task_options_keyboard())
         return SELECT_EDIT_OPTION
-
-
-async def cancel(update: Update, context: CallbackContext) -> int:
-    user = update.effective_user
-    # Сброс всех контекстных значений, связанных с задачами
-    context.user_data.pop('new_task', None)
-    context.user_data.pop('editing_new_task', None)
-    context.user_data.pop('editing_task', None)
-    context.user_data.pop('tasks', None)
-    context.user_data.pop('tasks_selected', None)
-    context.user_data.pop('current_task', None)
-
-    await update.message.reply_text(f"Отмена операции.", reply_markup=ReplyKeyboardRemove())
-    return ConversationHandler.END
 
 
 task_conversation_handler = ConversationHandler(

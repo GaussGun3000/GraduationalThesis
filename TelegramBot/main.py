@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, CallbackQueryHandler
 from TelegramBot.config import BOT_TOKEN
 from TelegramBot.handlers.basic_commands import start_command, help_command
+from TelegramBot.handlers.financial import finance_command, financial_conversation_handler
 from TelegramBot.handlers.task import (task_command, task_main_menu_callback, task_conversation_handler,
                                        )
 
@@ -15,7 +16,9 @@ def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("task", task_command))
+    application.add_handler(CommandHandler("finance", finance_command))
     application.add_handler(task_conversation_handler)
+    application.add_handler(financial_conversation_handler)
     #application.add_handler(CallbackQueryHandler(complete_task_callback, pattern=r'^complete_'))
 
     application.run_polling()

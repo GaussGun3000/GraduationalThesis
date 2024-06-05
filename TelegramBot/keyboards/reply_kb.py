@@ -1,6 +1,8 @@
 from dateutil.parser import isoparse
 from telegram import ReplyKeyboardMarkup
 
+from TelegramBot.models import Category
+
 
 def active_tasks_keyboard(active_tasks):
     keyboard = []
@@ -24,3 +26,9 @@ def confirmation_keyboard():
     ]
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
+
+def generate_category_keyboard(categories: list[Category]):
+    keyboard = []
+    for index, category in enumerate(categories):
+        keyboard.append([f"{index + 1} - {category.name} ({category.budget_limit})"])
+    return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)

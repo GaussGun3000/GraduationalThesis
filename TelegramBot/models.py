@@ -58,17 +58,28 @@ class Task:
 @dataclass
 class Financial:
     financial_oid: str
-    group_oid: str
     categories: List['Category']
     reset_day: str
+    group_oid: str = ""
+    user_oid: str = ""
+
+    def to_request_dict(self):
+        data = asdict(self)
+        data.pop('financial_oid')
+        return data
 
 
 @dataclass
 class Category:
     category_id: str  # optional?
     name: str
+    description: str
     budget_limit: float
     expenses: List['Expense']
+
+    def to_request_dict(self):
+        data = asdict(self)
+        return data
 
 
 @dataclass
@@ -78,4 +89,8 @@ class Expense:
     description: str
     date: str
     user_oid: str
+
+    def to_request_dict(self):
+        data = asdict(self)
+        return data
 

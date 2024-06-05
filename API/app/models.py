@@ -49,15 +49,17 @@ class Task:
 @dataclass
 class Financial:
     financial_oid: str
-    group_oid: str
     categories: List['Category']
     reset_day: str
+    group_oid: str = ""
+    user_oid: str = ""
 
 
 @dataclass
 class Category:
     category_id: str  # optional?
     name: str
+    description: str
     budget_limit: float
     expenses: List['Expense']
 

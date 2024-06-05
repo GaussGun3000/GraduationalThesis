@@ -1,6 +1,7 @@
 from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import CallbackContext, ConversationHandler
 from ..utils.api import check_and_create_user
+from ..utils.states import reset_financial_context
 
 
 async def start_command(update: Update, context: CallbackContext) -> None:
@@ -28,5 +29,14 @@ async def help_command(update: Update, context: CallbackContext) -> None:
 
 async def cancel(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
-    await update.message.reply_text(f"Отмена операции", reply_markup=ReplyKeyboardRemove())
+    context.user_data.pop('new_task', None)
+    context.user_data.pop('editing_new_task', None)
+    context.user_data.pop('editing_task', None)
+    context.user_data.pop('tasks', None)
+    context.user_data.pop('tasks_selected', None)
+    context.user_data.pop('current_task', None)
+
+    reset_financial_context(context)
+
+    await update.message.reply_text(f"Отмена операции.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
