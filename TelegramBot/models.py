@@ -19,12 +19,21 @@ class User:
         data.pop('user_oid')
         return data
 
+    def is_premium(self):
+        return self.status == "premium"
+
+
 @dataclass
 class Group:
     group_oid: str
     name: str
     description: str = "No description"
     members: List['GroupMember'] = field(default_factory=list)
+
+    def to_request_dict(self):
+        data = asdict(self)
+        data.pop('group_oid')
+        return data
 
 
 @dataclass

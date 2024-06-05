@@ -3,7 +3,7 @@ from dataclasses import asdict
 import aiohttp
 from ..config import API_BASE_URL, INTERNAL_API_TOKEN
 from datetime import datetime
-from ..models import User, Task, Category, Expense, Financial
+from ..models import User, Task, Category, Expense, Financial, Group
 
 HEADERS = {
     "Authorization": f"Bearer {INTERNAL_API_TOKEN}"
@@ -162,6 +162,38 @@ async def create_expense(financial_oid: str, category: Category, expense: Expens
         "expense": expense.to_request_dict()
     }
     async with session.post(url, json=data, headers=HEADERS) as response:
+        return response.status == 201
+
+
+async def get_created_group(user_tid: int):
+    url = f"{API_BASE_URL}/group/user/{user_tid}/created"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            data = await response.json()
+            return data.get('created_group')
+        return None
+
+
+async def get_user_groups(user_tid: int):
+    url = f"{API_BASE_URL}/group/user/{user_tid}"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            return await response.json()
+        return None
+
+
+async def get_group(group_oid: str):
+    url = f"{API_BASE_URL}/group/{group_oid}"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            data = await response.json()
+            return Group(**data)
+        return None
+
+
+async def create_group(group: Group) -> bool:
+    url = f"{API_BASE_URL}/group"
+    async with session.post(url, json=group.to_request_dict(), headers=HEADERS) as response:
         return response.status == 201
 
 

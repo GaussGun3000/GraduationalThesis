@@ -1,6 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ..models import Task
+from ..models import Task, User
 from ..utils import api
 
 
@@ -88,3 +88,14 @@ def category_menu():
         [InlineKeyboardButton("Редактировать категории", callback_data='edit_categories')],
     ]
     return InlineKeyboardMarkup(inline_keyboard)
+
+
+def select_group_keyboard(user: User, created_group, user_groups):
+    keyboard = []
+    if created_group or user.is_premium():
+        keyboard.append([InlineKeyboardButton("Моя группа", callback_data=f"group_my")])
+
+    for group in user_groups:
+        keyboard.append([InlineKeyboardButton(group['name'], callback_data=f"group_{group['id']}")])
+
+    return InlineKeyboardMarkup(keyboard)
