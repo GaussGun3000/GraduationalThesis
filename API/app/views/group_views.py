@@ -42,6 +42,40 @@ def get_group_admins(group_oid):
     return jsonify(admins), 200
 
 
+@group_blueprint.route('/group/user/<string:user_tid>', methods=['GET'])
+@token_required
+def get_groups_by_user_tid(user_tid):
+    # Поиск пользователя по user_tid
+    user = current_app.db.Users.find_one({"user_tid": int(user_tid)}, {"_id": 1})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user_oid = str(user['_id'])
+    groups = current_app.db.Groups.find(
+        {"members": {"$elemMatch": {"member_oid": user_oid, "role": {"$ne": "creator"}}}})
+    group_oids = [str(group["_id"]) for group in groups]
+
+    return jsonify(group_oids), 200
+
+
+@group_blueprint.route('/group/user/<string:user_tid>/created', methods=['GET'])
+@token_required
+def check_user_created_group(user_tid):
+    # Поиск пользователя по user_tid
+    user = current_app.db.Users.find_one({"user_tid": int(user_tid)}, {"_id": 1})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user_oid = str(user['_id'])
+
+    created_group = current_app.db.Groups.find_one(
+        {"members": {"$elemMatch": {"member_oid": user_oid, "role": "creator"}}})
+    if created_group:
+        return jsonify({"created_group": str(created_group.get('_id'))}), 200
+    else:
+        return jsonify({"created_group": False}), 200
+
+
 @group_blueprint.route('/group/<string:group_oid>', methods=['GET'])
 @token_required
 def get_group_by_oid(group_oid):
