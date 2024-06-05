@@ -22,13 +22,13 @@ async def get_user_id_list():
         return []
 
 
-async def get_user(user_tid: int) -> User:
+async def get_user(user_tid: int) -> User | None:
     url = f"{API_BASE_URL}/user/{user_tid}"
     async with session.get(url, headers=HEADERS) as response:
         if response.status == 200:
             data = await response.json()
             return User(**data)
-        return []
+        return None
 
 
 async def create_user(user_data):

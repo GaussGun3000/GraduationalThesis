@@ -99,3 +99,20 @@ def select_group_keyboard(user: User, created_group, user_groups):
         keyboard.append([InlineKeyboardButton(group['name'], callback_data=f"group_{group['id']}")])
 
     return InlineKeyboardMarkup(keyboard)
+
+
+def confirm_or_edit_keyboard():
+    inline_keyboard = [
+        [InlineKeyboardButton("Подтвердить", callback_data='group_confirm_yes')],
+        [InlineKeyboardButton("Редактировать", callback_data='group_confirm_no')],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard)
+
+
+def edit_group_options_keyboard():
+    inline_keyboard = [
+        [InlineKeyboardButton("Название", callback_data='edit_group_name')],
+        [InlineKeyboardButton("Описание", callback_data='edit_group_description')],
+        [InlineKeyboardButton("Участники", callback_data='edit_group_members')],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard)
