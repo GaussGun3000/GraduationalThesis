@@ -43,6 +43,10 @@ class GroupMember:
     member_oid: str
     member_tid: int
 
+    def to_request_dict(self):
+        data = asdict(self)
+        return data
+
 
 @dataclass
 class Task:

@@ -20,6 +20,9 @@ def reset_group_context(context: CallbackContext):
         'new_group',
         'my_group',
         'user_data-db',
+        'editing_new_group',
+        'current_group',
+        'member_info',
     ]
     for key in keys_to_remove:
         context.user_data.pop(key, None)

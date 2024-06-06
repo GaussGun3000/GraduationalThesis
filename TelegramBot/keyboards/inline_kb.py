@@ -116,3 +116,18 @@ def edit_group_options_keyboard():
         [InlineKeyboardButton("Участники", callback_data='edit_group_members')],
     ]
     return InlineKeyboardMarkup(inline_keyboard)
+
+
+def group_actions(member_role: str):
+    role_map = {
+        "creator": [[InlineKeyboardButton("Редактировать группу", callback_data='edit_group_info')],
+                    [InlineKeyboardButton("Администраторы", callback_data='manage_group_admins')],
+                    [InlineKeyboardButton("Участники", callback_data='manage_group_members')]],
+        "admin": [[InlineKeyboardButton("Участники", callback_data='manage_group_members')]],
+        "member": []
+        }
+    keyboard = [
+        [InlineKeyboardButton("Задачи", callback_data='manage_group_tasks')],
+        [InlineKeyboardButton("Финансы", callback_data='manage_group_finances')],
+    ] + role_map.get(member_role)
+    return InlineKeyboardMarkup(keyboard)

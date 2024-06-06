@@ -1,9 +1,10 @@
 from dataclasses import asdict
+from typing import Tuple
 
 import aiohttp
 from ..config import API_BASE_URL, INTERNAL_API_TOKEN
-from datetime import datetime
-from ..models import User, Task, Category, Expense, Financial, Group
+from datetime import datetime, timezone
+from ..models import User, Task, Category, Expense, Financial, Group, GroupMember
 
 HEADERS = {
     "Authorization": f"Bearer {INTERNAL_API_TOKEN}"
@@ -31,7 +32,7 @@ async def get_user(user_tid: int) -> User | None:
         return None
 
 
-async def create_user(user_data):
+async def create_user(user_data: dict):
     url = f"{API_BASE_URL}/user"
     async with session.post(url, json=user_data, headers=HEADERS) as response:
         return response
@@ -39,6 +40,7 @@ async def create_user(user_data):
 
 async def check_and_create_user(user_tid, user_name):
     user_ids = await get_user_id_list()
+    current_date = datetime.now(timezone.utc).isoformat()
     if user_tid not in user_ids:
         new_user = User(
             user_oid="",
@@ -46,13 +48,17 @@ async def check_and_create_user(user_tid, user_name):
             name=user_name,
             email="",
             status="free",
-            registration_date=datetime.now().isoformat(),
+            registration_date=current_date,
             premium_expiry_date="",
-            last_active=datetime.now().isoformat(),
+            last_active=current_date,
             notification_settings={}
         )
         response = await create_user(new_user.to_request_dict())
-        return response.status == 201
+        if response.status == 201:
+            data = await response.json()
+            return data.get('user_oid')
+        else:
+            return None
     return True
 
 
@@ -187,14 +193,28 @@ async def get_group(group_oid: str):
     async with session.get(url, headers=HEADERS) as response:
         if response.status == 200:
             data = await response.json()
-            return Group(**data)
+            members = [GroupMember(**member_data) for member_data in data['members']]
+            return Group(
+                group_oid=data['group_oid'],
+                name=data['name'],
+                description=data['description'],
+                members=members
+            )
         return None
 
 
-async def create_group(group: Group) -> bool:
+async def create_group(group: Group) -> Tuple[bool, str]:
     url = f"{API_BASE_URL}/group"
     async with session.post(url, json=group.to_request_dict(), headers=HEADERS) as response:
-        return response.status == 201
+        data = await response.json()
+        return response.status == 201, data.get('group_oid')
+
+
+async def add_group_member(group_oid: str, member: GroupMember) -> bool:
+    url = f"{API_BASE_URL}/group/{group_oid}/member"
+    data = {"member": member.to_request_dict()}
+    async with session.post(url, json=data, headers=HEADERS) as response:
+        return response.status == 200
 
 
 async def close_session():
