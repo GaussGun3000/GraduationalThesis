@@ -6,6 +6,8 @@ from dataclasses import asdict
 group_blueprint = Blueprint('group', __name__)
 from bson.objectid import ObjectId
 
+ROLE_LIST = ("creator", "admin", "member")
+
 
 def validate_group_schema(data: dict) -> Group | None:
     try:
@@ -120,6 +122,70 @@ def update_group(group_oid):
         return jsonify({"message": "Group updated successfully"}), 200
     else:
         return jsonify({"error": "Group not found"}), 404
+
+
+@group_blueprint.route('/group/<string:group_oid>/member', methods=['POST'])
+@token_required
+def add_member_to_group(group_oid):
+    data = request.get_json()
+    if not data or 'member' not in data:
+        return jsonify({"error": "Invalid input"}), 400
+
+    user_tid = data['member']['member_tid']
+    user = current_app.db.Users.find_one({"user_tid": int(user_tid)}, {"_id": 1})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    group = current_app.db.Groups.find_one({"_id": ObjectId(group_oid)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+
+    if any(member['member_tid'] == user_tid for member in group['members']):
+        return jsonify({"error": "User is already a member of the group"}), 400
+
+    new_member = GroupMember(**data['member'])
+
+    group['members'].append(asdict(new_member))
+    current_app.db.Groups.update_one(
+        {"_id": ObjectId(group_oid)},
+        {"$set": {"members": group['members']}}
+    )
+
+    return jsonify({"message": "New member added to group successfully"}), 201
+
+
+@group_blueprint.route('/group/<string:group_oid>/set_member_role', methods=['PUT'])
+@token_required
+def set_member_role(group_oid):
+    data = request.get_json()
+    if not data or 'user_tid' not in data or 'new_role' not in data:
+        return jsonify({"error": "Invalid input"}), 400
+    if data['new_role'] not in ROLE_LIST:
+        return jsonify({"error": "Invalid input - incorrect role"}), 400
+
+    new_role = data['new_role']
+    user_tid = data['user_tid']
+    user = current_app.db.Users.find_one({"user_tid": int(user_tid)}, {"_id": 1})
+    if not user:
+        return jsonify({"error": "Specified user is not in database"}), 404
+
+    user_oid = str(user['_id'])
+    group = current_app.db.Groups.find_one({"_id": ObjectId(group_oid)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+    member_found = False
+    for member in group['members']:
+        if member['member_oid'] == user_oid:
+            member['role'] = new_role
+            member_found = True
+            break
+    if not member_found:
+        return jsonify({"error": "User is not a member of the group"}), 400
+
+    current_app.db.Groups.update_one(
+        {"_id": ObjectId(group_oid)},
+        {"$set": {"members": group['members']}}
+    )
+    return jsonify({"message": "User promoted to admin successfully"}), 200
 
 
 @group_blueprint.route('/group/<string:group_oid>', methods=['DELETE'])
