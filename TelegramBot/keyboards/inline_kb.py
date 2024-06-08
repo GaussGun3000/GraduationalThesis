@@ -109,18 +109,27 @@ def confirm_or_edit_keyboard():
     return InlineKeyboardMarkup(inline_keyboard)
 
 
-def edit_group_options_keyboard():
+def edit_group_options_keyboard(existing: bool = False):
     inline_keyboard = [
         [InlineKeyboardButton("Название", callback_data='edit_group_name')],
         [InlineKeyboardButton("Описание", callback_data='edit_group_description')],
-        [InlineKeyboardButton("Участники", callback_data='edit_group_members')],
+    ]
+    if not existing:
+        inline_keyboard += [InlineKeyboardButton("Участники", callback_data='edit_group_members')],
+    return InlineKeyboardMarkup(inline_keyboard)
+
+
+def menu_or_exit():
+    inline_keyboard = [
+        [InlineKeyboardButton("В меню группы", callback_data='go_to_group_menu')],
+        [InlineKeyboardButton("Завершить", callback_data='go_to_exit')],
     ]
     return InlineKeyboardMarkup(inline_keyboard)
 
 
 def group_actions(member_role: str):
     role_map = {
-        "creator": [[InlineKeyboardButton("Редактировать группу", callback_data='edit_group_info')],
+        "creator": [[InlineKeyboardButton("Редактировать группу", callback_data='manage_group_info')],
                     [InlineKeyboardButton("Администраторы", callback_data='manage_group_admins')],
                     [InlineKeyboardButton("Участники", callback_data='manage_group_members')]],
         "admin": [[InlineKeyboardButton("Участники", callback_data='manage_group_members')]],
@@ -130,4 +139,12 @@ def group_actions(member_role: str):
         [InlineKeyboardButton("Задачи", callback_data='manage_group_tasks')],
         [InlineKeyboardButton("Финансы", callback_data='manage_group_finances')],
     ] + role_map.get(member_role)
+    return InlineKeyboardMarkup(keyboard)
+
+
+def admin_action_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Удалить из администраторов", callback_data='manage_admin_delete')],
+        [InlineKeyboardButton("Назад к меню группы", callback_data='manage_admin_goback')]
+    ]
     return InlineKeyboardMarkup(keyboard)

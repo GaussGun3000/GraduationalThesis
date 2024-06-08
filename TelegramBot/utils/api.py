@@ -217,5 +217,21 @@ async def add_group_member(group_oid: str, member: GroupMember) -> bool:
         return response.status == 200
 
 
+async def update_group(group: Group) -> bool:
+    url = f"{API_BASE_URL}/group/{group.group_oid}"
+    data = group.to_request_dict()
+    async with session.put(url, json=data, headers=HEADERS) as response:
+        return response.status == 200
+
+
+async def set_member_role(group_oid: str, member: GroupMember) -> bool:
+    url = f"{API_BASE_URL}/group/{group_oid}/set_member_role"
+    data = {
+        "user_tid": member.member_tid,
+        "new_role": member.role
+    }
+    async with session.put(url, json=data, headers=HEADERS) as response:
+        return response.status == 200
+
 async def close_session():
     await session.close()
