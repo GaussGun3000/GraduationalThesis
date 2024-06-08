@@ -117,7 +117,12 @@ def update_group(group_oid):
 
     if not validate_group_schema(data):
         return jsonify({"error": "Incorrect data structure for Group"}), 400
-    result = current_app.db.Groups.update_one({"_id": ObjectId(group_oid)}, {"$set": data})
+
+    update_data = {key: value for key, value in data.items() if key != 'members'}
+    if 'members' in data:
+        update_data['members'] = [member for member in data['members']]
+
+    result = current_app.db.Groups.update_one({"_id": ObjectId(group_oid)}, {"$set": update_data})
     if result.matched_count > 0:
         return jsonify({"message": "Group updated successfully"}), 200
     else:
@@ -185,7 +190,7 @@ def set_member_role(group_oid):
         {"_id": ObjectId(group_oid)},
         {"$set": {"members": group['members']}}
     )
-    return jsonify({"message": "User promoted to admin successfully"}), 200
+    return jsonify({"message": "User role updated successfully"}), 200
 
 
 @group_blueprint.route('/group/<string:group_oid>', methods=['DELETE'])
