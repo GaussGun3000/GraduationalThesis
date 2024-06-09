@@ -160,7 +160,7 @@ async def complete_task_action(update, context) -> int:
     else:
         task.status = "completed"
 
-    success = await update_task(task.task_oid, task)
+    success = await update_task(task)
     if success:
         await update.effective_user.send_message("Задача отмечена как выполненная." + next_deadline_str)
     else:
@@ -410,7 +410,7 @@ async def handle_edit_confirmation(update: Update, context: CallbackContext) -> 
         await query.message.delete()
         task = context.user_data.get('current_task')
         task.last_updated = datetime.now(timezone.utc).isoformat()
-        success = await update_task(task.task_oid, task)
+        success = await update_task(task)
         if success:
             await query.message.reply_text("Задача обновлена", reply_markup=ReplyKeyboardRemove())
         else:

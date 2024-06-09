@@ -189,3 +189,12 @@ def back_or_exit():
         [InlineKeyboardButton("Завершить", callback_data='exit')],
     ]
     return InlineKeyboardMarkup(inline_keyboard)
+
+
+def notifications_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Все уведомления", callback_data='notify_all')],
+        [InlineKeyboardButton("Только за день до", callback_data='notify_day_before')],
+        [InlineKeyboardButton("Отключить уведомления", callback_data='notify_off')]
+    ]
+    return InlineKeyboardMarkup(keyboard)

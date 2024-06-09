@@ -60,8 +60,7 @@ async def check_and_create_user(user_tid, user_name):
             registration_date=current_date,
             premium_expiry_date="",
             last_active=current_date,
-            notification_settings={}
-        )
+            notification_settings={"notifications": "all"})
         response = await create_user(new_user.to_request_dict())
         if response.status == 201:
             data = await response.json()
@@ -92,10 +91,30 @@ async def is_group_admin(user_tid, group_oid) -> bool:
         return False
 
 
-async def update_task(task_oid, updated: Task):
-    url = f"{API_BASE_URL}/task/{task_oid}"
+async def update_task(updated: Task):
+    url = f"{API_BASE_URL}/task/{updated.task_oid}"
     async with session.put(url, json=updated.to_request_dict(), headers=HEADERS) as response:
         return response.status == 200
+
+
+async def update_user_notifications(user_tid: int, notifications: str):
+    url = f"{API_BASE_URL}/user/notifications/{user_tid}"
+    data = {"notification_settings": notifications}
+    async with session.put(url, json=data, headers=HEADERS) as response:
+        return response.status == 200
+
+
+async def get_active_tasks() -> list[Task]:
+    url = f"{API_BASE_URL}/task/active"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            tasks_data = await response.json()
+            tasks = []
+            for task in tasks_data:
+                task['task_oid'] = task.pop('_id')
+                tasks.append(Task(**task))
+            return tasks
+        return []
 
 
 async def create_task(task: Task):

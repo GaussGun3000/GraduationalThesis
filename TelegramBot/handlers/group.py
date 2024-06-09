@@ -748,6 +748,7 @@ group_financial_conversation_manager = ConversationHandler(
         INPUT_EXPENSE_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_expense_description)],
         INPUT_EXPENSE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_expense_amount)],
         CONFIRM_EXPENSE_CREATION: [CallbackQueryHandler(handle_expense_confirm, pattern=r'^expense_confirm')],
+        BACK_OR_EXIT: [CallbackQueryHandler(back_or_exit_handler, pattern=r'^(back|exit)$')]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )

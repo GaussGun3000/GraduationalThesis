@@ -110,6 +110,32 @@ def update_user_by_oid(user_oid):
         return jsonify({"error": "User not found"}), 404
 
 
+@user_blueprint.route('/user/notifications/<int:user_tid>', methods=['PUT'])
+@token_required
+def update_user_notifications(user_tid):
+    data = request.get_json()
+    if not data or 'notification_settings' not in data:
+        return jsonify({"error": "Invalid input"}), 400
+
+    notification_status = data['notification_settings']
+    user = current_app.db.Users.find_one({"user_tid": user_tid})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    notification_settings = user.get('notification_settings', {})
+    notification_settings['notifications'] = notification_status
+    result = current_app.db.Users.update_one(
+        {"user_tid": user_tid},
+        {"$set": {"notification_settings": notification_settings}})
+
+    if result.matched_count > 0:
+        return jsonify({"message": "User notification settings updated successfully"}), 200
+    else:
+        return jsonify({"error": "Failed to update user notification settings"}), 500
+
+
+
+
 @user_blueprint.route('/user/<int:user_tid>', methods=['DELETE'])
 @token_required
 def delete_user(user_tid):

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request, current_app
 
 from ..auth import token_required
@@ -57,6 +59,18 @@ def get_tasks_by_group(group_oid):
         return jsonify({"error": "Group not found"}), 404
 
     tasks = current_app.db.Tasks.find({"group_oid": group_oid})
+    task_list = []
+    for task in tasks:
+        task["_id"] = str(task["_id"])
+        task_list.append(task)
+
+    return jsonify(task_list), 200
+
+
+@task_blueprint.route('/task/active', methods=['GET'])
+@token_required
+def get_active_tasks():
+    tasks = current_app.db.Tasks.find({"status": "open"})
     task_list = []
     for task in tasks:
         task["_id"] = str(task["_id"])

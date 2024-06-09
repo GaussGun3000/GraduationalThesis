@@ -44,6 +44,7 @@ class Task:
     last_updated: str
     recurring: str
     completion_date: str
+    notified: dict = field(default_factory=dict)
 
 
 @dataclass

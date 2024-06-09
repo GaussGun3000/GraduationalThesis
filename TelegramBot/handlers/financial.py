@@ -41,16 +41,26 @@ async def get_statistics_by_categories(context: CallbackContext) -> str:
     financial_info = context.user_data.get('financial')
     statistics_message = "Статистика расходов:\n"
     warning_threshold = 0.9
+    today = datetime.now(timezone.utc)
+    reset_day = int(financial_info.reset_day)
+    if today.day >= reset_day:
+        start_date = today.replace(day=reset_day) - timedelta(days=30)
+    else:
+        previous_month = (today.replace(day=1) - timedelta(days=1)).month
+        start_date = today.replace(day=reset_day, month=previous_month)
     for category in financial_info.categories:
-        total_expense = sum(expense.amount for expense in category.expenses)
+        total_expense = 0
+        for expense in category.expenses:
+            expense_date = datetime.fromisoformat(expense.date)
+            if expense_date >= start_date:
+                total_expense += expense.amount
+
         warning_icon = ""
         if total_expense >= category.budget_limit:
             warning_icon = "🛑"
         elif total_expense >= category.budget_limit * warning_threshold:
             warning_icon = "⚠️"
-        statistics_message += (
-            f"{category.name}: {total_expense}/{category.budget_limit} {warning_icon}\n"
-        )
+        statistics_message += f"{category.name}: {total_expense}/{category.budget_limit} {warning_icon}\n"
     return statistics_message
 
 
