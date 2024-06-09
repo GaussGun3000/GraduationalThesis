@@ -49,6 +49,22 @@ def get_tasks_by_user_tid(user_tid):
     return jsonify(tasks), 200
 
 
+@task_blueprint.route('/task/group/<string:group_oid>', methods=['GET'])
+@token_required
+def get_tasks_by_group(group_oid):
+    group = current_app.db.Groups.find_one({"_id": ObjectId(group_oid)})
+    if not group:
+        return jsonify({"error": "Group not found"}), 404
+
+    tasks = current_app.db.Tasks.find({"group_oid": group_oid})
+    task_list = []
+    for task in tasks:
+        task["_id"] = str(task["_id"])
+        task_list.append(task)
+
+    return jsonify(task_list), 200
+
+
 @task_blueprint.route('/task', methods=['POST'])
 @token_required
 def create_task():

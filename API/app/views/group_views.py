@@ -118,13 +118,31 @@ def update_group(group_oid):
     if not validate_group_schema(data):
         return jsonify({"error": "Incorrect data structure for Group"}), 400
 
-    update_data = {key: value for key, value in data.items() if key != 'members'}
-    if 'members' in data:
-        update_data['members'] = [member for member in data['members']]
-
-    result = current_app.db.Groups.update_one({"_id": ObjectId(group_oid)}, {"$set": update_data})
+    result = current_app.db.Groups.update_one({"_id": ObjectId(group_oid)}, {"$set": data})
     if result.matched_count > 0:
         return jsonify({"message": "Group updated successfully"}), 200
+    else:
+        return jsonify({"error": "Group not found"}), 404
+
+
+@group_blueprint.route('/group/<string:group_oid>/members', methods=['PUT'])
+@token_required
+def update_group_members(group_oid):
+    data = request.get_json()
+    if not data or 'members' not in data:
+        return jsonify({"error": "Invalid input"}), 400
+    members = data['members']
+    try:
+        for member in members:
+            GroupMember(**member)
+    except TypeError:
+        return jsonify({"error": "Incorrect data structure for Members"}), 400
+
+    print(f"Updating group members with data: {members}")
+
+    result = current_app.db.Groups.update_one({"_id": ObjectId(group_oid)}, {"$set": {"members": members}})
+    if result.matched_count > 0:
+        return jsonify({"message": "Group members updated successfully"}), 200
     else:
         return jsonify({"error": "Group not found"}), 404
 
