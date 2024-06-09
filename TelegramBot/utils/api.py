@@ -41,9 +41,6 @@ async def get_user_by_oid(user_oid: str) -> User | None:
         return None
 
 
-
-
-
 async def create_user(user_data: dict):
     url = f"{API_BASE_URL}/user"
     async with session.post(url, json=user_data, headers=HEADERS) as response:
@@ -113,8 +110,13 @@ async def delete_task(task_oid: str) -> bool:
         return response.status == 200
 
 
-async def get_financial_info(user_id: int) -> Financial | None:
-    url = f"{API_BASE_URL}/financial/user/{user_id}"
+async def get_financial_info(user_id: int = None, group_oid: str = None) -> Financial | None:
+    if user_id:
+        url = f"{API_BASE_URL}/financial/user/{user_id}"
+    elif group_oid:
+        url = f"{API_BASE_URL}/financial/group/{group_oid}"
+    else:
+        raise (ValueError("No user_id or group_oid value was provided for get_financial method"))
     async with session.get(url, headers=HEADERS) as response:
         if response.status == 200:
             data = await response.json()

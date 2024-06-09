@@ -2,7 +2,7 @@ import re
 
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse as date_parser
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, Message
 from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, CommandHandler, filters, \
     CallbackQueryHandler
 
@@ -13,16 +13,16 @@ from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, generate_category_keyboard
 from ..keyboards.inline_kb import financial_menu, category_menu, fin_confirmation_keyboard, edit_fin_options_keyboard, \
-    expense_confirmation_keyboard
+    expense_confirmation_keyboard, back_or_exit
 from ..models import Financial, Category, Expense
-from ..utils.states import reset_financial_context
+from ..utils.states import reset_financial_context, reset_all_context
 
 (CHOOSE_EXPENSE_CATEGORY, SET_RESET_DAY, CATEGORY_NAME, CATEGORY_DESCRIPTION, CATEGORY_BUDGET_LIMIT,
  CONFIRM_CATEGORY_CREATION, CATEGORY_MENU, SELECT_EDIT_OPTION, SELECT_CATEGORY, CONFIRM_CATEGORY_EDIT
- , INPUT_EXPENSE_AMOUNT, INPUT_EXPENSE_DESCRIPTION, CONFIRM_EXPENSE_CREATION) = range(13)
+ , INPUT_EXPENSE_AMOUNT, INPUT_EXPENSE_DESCRIPTION, CONFIRM_EXPENSE_CREATION, BACK_OR_EXIT) = range(14)
 
 
-async def get_finance_statistics(user_id: int, financial_info) -> str:
+async def get_finance_statistics(financial_info: Financial) -> str:
     total_limit = sum(category.budget_limit for category in financial_info.categories)
     total_expense = sum(expense.amount for category in financial_info.categories for expense in category.expenses)
     depleted_categories = [category for category in financial_info.categories if
@@ -67,15 +67,24 @@ async def create_new_financial(user_tid: int, context: CallbackContext):
     return financial
 
 
-async def finance_command(update: Update, context: CallbackContext) -> None:
+async def finance_command(update: Update, context: CallbackContext) -> int:
+    reset_all_context(context)
     context.user_data['user_data-db'] = await get_user(update.effective_user.id)
     financial_info = await get_financial_info(update.effective_user.id)
     if not financial_info:
         financial_info = await create_new_financial(update.effective_user.id, context)
     context.user_data['financial'] = financial_info
     user_id = update.effective_user.id
-    stats_message = await get_finance_statistics(user_id, financial_info)
+    stats_message = await get_finance_statistics(financial_info)
+
     await update.message.reply_text(f"{stats_message}", reply_markup=financial_menu())
+    return ConversationHandler.END
+
+
+async def send_categories_stats(update: Update, context: CallbackContext, orig_bot_msg: str):
+    stats = await get_statistics_by_categories(context)
+    await update.effective_user.send_message(stats) #, reply_markup=main_menu())
+    return ConversationHandler.END
 
 
 async def finance_menu_callback(update: Update, context: CallbackContext) -> int:
@@ -83,9 +92,7 @@ async def finance_menu_callback(update: Update, context: CallbackContext) -> int
     await query.answer()
     await query.message.delete()
     if query.data == 'finance_stats':
-        stats = await get_statistics_by_categories(context)
-        await query.message.reply_text(stats)
-        return ConversationHandler.END
+        return await send_categories_stats(update, context, query.message.text)
     elif query.data == 'finance_expense':
         financial_info = context.user_data['financial']
         categories = financial_info.categories
@@ -240,7 +247,7 @@ async def handle_category_confirm(update: Update, context: CallbackContext) -> i
         return SELECT_EDIT_OPTION
 
 
-async def handle_edit_option(update: Update, context: CallbackContext) -> int:
+async def handle_edit_fin_option(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     await query.answer()
     await query.message.delete()
@@ -352,6 +359,22 @@ async def handle_expense_confirm(update: Update, context: CallbackContext):
         return INPUT_EXPENSE_AMOUNT
 
 
+async def back_or_exit_handler(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    await query.answer()
+    action = query.data
+    await query.message.delete()
+    if action == 'back':
+        message = context.user_data.get('back_message', {"text": "Возвращаю назад"})
+        previous_state = context.user_data.get('previous_state', ConversationHandler.END)
+        await update.effective_user.send_message(text=message.get('text'), reply_markup=message.get('reply_markup'))
+        return previous_state
+    elif action == 'exit':
+        context.user_data.clear()
+        await query.message.reply_text("Вы завершили взаимодействие и вернулись в главное меню.")
+        return ConversationHandler.END
+
+
 financial_conversation_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(finance_menu_callback, pattern=r'^finance_')],
     states={
@@ -361,12 +384,13 @@ financial_conversation_handler = ConversationHandler(
         CATEGORY_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_category_description)],
         CATEGORY_BUDGET_LIMIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, create_category_budget_limit)],
         CONFIRM_CATEGORY_CREATION: [CallbackQueryHandler(handle_category_confirm, pattern=r'^fin_confirm')],
-        SELECT_EDIT_OPTION: [CallbackQueryHandler(handle_edit_option, pattern=r'^fin_edit_')],
+        SELECT_EDIT_OPTION: [CallbackQueryHandler(handle_edit_fin_option, pattern=r'^fin_edit_')],
         CONFIRM_CATEGORY_EDIT: [CallbackQueryHandler(handle_category_edit_confirm, pattern=r'^fin_confirm')],
         SELECT_CATEGORY: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_category)],
         INPUT_EXPENSE_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_expense_description)],
         INPUT_EXPENSE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_expense_amount)],
         CONFIRM_EXPENSE_CREATION: [CallbackQueryHandler(handle_expense_confirm, pattern=r'^expense_confirm')],
+        BACK_OR_EXIT: [CallbackQueryHandler(back_or_exit_handler, pattern=r'^(back|exit)$')]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )

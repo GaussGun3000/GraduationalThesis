@@ -57,14 +57,23 @@ def get_financial_for_user(user_tid):
     user = current_app.db.Users.find_one({"user_tid": int(user_tid)}, {"_id": 1})
     if not user:
         return jsonify({"error": "User not found"}), 404
-
     user_oid = str(user['_id'])
 
-    # Поиск финансовой информации пользователя
     financial_data = current_app.db.Financial.find_one({"user_oid": user_oid})
     if not financial_data:
         return jsonify({"error": "Financial information not found"}), 404
+    financial_data['financial_oid'] = str(financial_data['_id'])
+    del financial_data['_id']
 
+    return jsonify(financial_data), 200
+
+
+@financial_blueprint.route('/financial/group/<string:group_oid>', methods=['GET'])
+@token_required
+def get_financial_for_group(group_oid):
+    financial_data = current_app.db.Financial.find_one({"group_oid": group_oid})
+    if not financial_data:
+        return jsonify({"error": "Financial information not found"}), 404
     financial_data['financial_oid'] = str(financial_data['_id'])
     del financial_data['_id']
 

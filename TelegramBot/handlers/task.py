@@ -13,7 +13,7 @@ from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, member_list_keyboard
 from ..keyboards.inline_kb import task_menu, task_action_buttons, confirmation_keyboard, edit_task_options_keyboard
 from ..models import Task, GroupMember
-from ..utils.states import reset_task_context
+from ..utils.states import reset_task_context, reset_all_context
 
 db_to_user_recurring_map = {
     "daily": "Ежедневно",
@@ -60,14 +60,15 @@ def format_task_statistics_message(stats):
     )
 
 
-async def task_command(update: Update, context: CallbackContext) -> None:
+async def task_command(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
     user_tid = user.id
-
+    reset_all_context(context)
     tasks = await get_user_tasks(user_tid)
     stats = generate_task_statistics(tasks)
     context.user_data['tasks'] = tasks
     msg = await update.message.reply_text(format_task_statistics_message(stats), reply_markup=task_menu())
+    return ConversationHandler.END
 
 
 async def task_main_menu_callback(update: Update, context: CallbackContext) -> int:

@@ -66,7 +66,6 @@ async def join_group_by_link(update: Update, context: CallbackContext, group_oid
         await update.message.reply_text("Не удалось присоединиться к группе. Попробуйте снова.")
 
 
-
 async def cancel(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
     reset_task_context(context)

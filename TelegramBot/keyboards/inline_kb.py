@@ -77,7 +77,7 @@ def edit_fin_options_keyboard():
 def financial_menu():
     inline_keyboard = [
         [InlineKeyboardButton("Статистика", callback_data='finance_stats')],
-        [InlineKeyboardButton("Расход", callback_data='finance_expense')],
+        [InlineKeyboardButton("➕Расход", callback_data='finance_expense')],
         [InlineKeyboardButton("Категории", callback_data='finance_categories')],
         [InlineKeyboardButton("День сброса", callback_data='finance_reset_day')],
     ]
@@ -172,3 +172,20 @@ def task_management_keyboard(is_admin: bool):
     return InlineKeyboardMarkup(keyboard)
 
 
+def group_financial_menu(is_admin: bool) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton("➕Расход", callback_data='fin_group_expense')],
+        [InlineKeyboardButton("Статистика", callback_data='fin_group_stats')]
+    ]
+    if is_admin:
+        keyboard.append([InlineKeyboardButton("Категории", callback_data='fin_group_categories')])
+        keyboard.append([InlineKeyboardButton("День сброса", callback_data='fin_group_reset_day')])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def back_or_exit():
+    inline_keyboard = [
+        [InlineKeyboardButton("Назад", callback_data='back')],
+        [InlineKeyboardButton("Завершить", callback_data='exit')],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard)
