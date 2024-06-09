@@ -38,7 +38,9 @@ def reset_task_context(context: CallbackContext):
         'editing_task',
         'tasks',
         'tasks_selected',
-        'current_task'
+        'current_task',
+        'task_assignee_names',
+        'task_assignees'
     ]
     for key in keys_to_remove:
         context.user_data.pop(key, None)

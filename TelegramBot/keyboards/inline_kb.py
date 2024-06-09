@@ -53,13 +53,15 @@ def expense_confirmation_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-def edit_task_options_keyboard():
+def edit_task_options_keyboard(group_task=False):
     keyboard = [
         [InlineKeyboardButton("Название", callback_data='task_edit_title')],
         [InlineKeyboardButton("Описание", callback_data='task_edit_description')],
         [InlineKeyboardButton("Дедлайн", callback_data='task_edit_deadline')],
-        [InlineKeyboardButton("Периодичность", callback_data='task_edit_recurring')]
+        [InlineKeyboardButton("Периодичность", callback_data='task_edit_recurring')],
     ]
+    if group_task:
+        keyboard += [InlineKeyboardButton("Назначение", callback_data='task_edit_assignees')],
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -167,7 +169,6 @@ def task_management_keyboard(is_admin: bool):
     ]
     if is_admin:
         keyboard.append([InlineKeyboardButton("Создать групповую", callback_data='manage_tasks_create')])
-        keyboard.append([InlineKeyboardButton("Редактировать групповые", callback_data='manage_tasks_edit')])
     return InlineKeyboardMarkup(keyboard)
 
 

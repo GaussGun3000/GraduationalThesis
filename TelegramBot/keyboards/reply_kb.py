@@ -45,13 +45,14 @@ async def admin_list_keyboard(admins: list):
     return ReplyKeyboardMarkup(admin_keyboard, one_time_keyboard=True, resize_keyboard=True)
 
 
-async def member_list_keyboard(members: list):
+async def member_list_keyboard(members: list, confirm=False):
     member_names = list()
     for member in members:
         member_info = await get_user(member.member_tid)
         admin_name = f"{member_info.user_tid} - {member_info.name}"
         member_names.append(admin_name)
-    admin_keyboard = [["Назад", "Новый"]] + [[name] for name in member_names]
+    actions = ["Назад", "Новый"] if not confirm else ["Готово"]
+    admin_keyboard = [actions] + [[name] for name in member_names]
     return ReplyKeyboardMarkup(admin_keyboard, one_time_keyboard=True, resize_keyboard=True)
 
 

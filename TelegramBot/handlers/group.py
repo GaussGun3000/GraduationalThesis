@@ -4,7 +4,7 @@ from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, C
 
 from .basic_commands import cancel
 from .task import select_task, input_task_name, input_task_description, input_task_deadline, input_task_recurring, \
-    handle_confirmation, handle_edit_option, handle_task_action, handle_edit_confirmation
+    handle_confirmation, handle_edit_option, handle_task_action, handle_edit_confirmation, confirm_task_creation
 from ..utils.api import get_user_tasks, update_task, create_task, get_user, delete_task, get_financial_info, \
     create_financial, update_reset_day, create_category, update_category, create_expense, get_group, create_group, \
     get_user_groups, get_created_group, add_group_member, create_user, update_group, set_member_role, \
@@ -23,9 +23,6 @@ from ..config import BOT_URL
 (CREATE_GROUP_NAME, CREATE_GROUP_DESCRIPTION, ADD_GROUP_MEMBERS, CONFIRM_GROUP_CREATION, EDIT_GROUP,
  EDIT_EXISTING_GROUP, SELECT_GROUP_OPTION, TASK_MENU_OR_EXIT, MANAGE_ADMINS, ADMIN_ACTION, SELECT_NEW_ADMIN,
  MANAGE_MEMBERS, MEMBER_ACTION, INPUT_NEW_MEMBER, MANAGE_TASKS,) = range(15)
-
-(SELECT_TASK, CREATE_TASK_NAME, CREATE_TASK_DESCRIPTION, CREATE_TASK_DEADLINE, CREATE_TASK_RECURRING,
- CONFIRM_TASK_CREATION, SELECT_EDIT_OPTION,  HANDLE_TASK_ACTION, CONFIRM_TASK_EDIT) = range(9)
 
 
 async def group_command(update: Update, context: CallbackContext) -> int:
@@ -117,7 +114,8 @@ async def manage_group_tasks(update: Update, context: CallbackContext):
     group = context.user_data['current_group']
     member_info = context.user_data.get('member_info')
     is_admin = member_info.role in ["creator", "admin"]
-    await update.effective_user.send_message("Управление задачами группы:", reply_markup=task_management_keyboard(is_admin))
+    await update.effective_user.send_message("Управление задачами группы:",
+                                             reply_markup=task_management_keyboard(is_admin))
 
 
 async def handle_group_action(update: Update, context: CallbackContext) -> int:
@@ -345,8 +343,8 @@ async def view_group_tasks(update: Update, context: CallbackContext) -> int:
         group_tasks = [task for task in all_group_tasks if user_tid in task.assigned_to]
     context.user_data['tasks_selected'] = group_tasks
     if not group_tasks:
-        await query.message.reply_text("Задачи не найдены.", reply_markup=menu_or_exit())
-        return TASK_MENU_OR_EXIT
+        await query.message.reply_text("Задачи не найдены.", reply_markup=ReplyKeyboardRemove())
+        # return TASK_MENU_OR_EXIT
 
     reply_markup = active_tasks_keyboard(group_tasks)
     await query.message.reply_text("Выберите задачу:", reply_markup=reply_markup)
@@ -361,8 +359,7 @@ async def handle_task_action_selection(update: Update, context: CallbackContext)
     if action == 'manage_tasks_view':
         return await view_group_tasks(update, context)
     elif action == 'manage_tasks_create':
-        """await create_task(update, context)
-        return CREATE_TASK"""
+        return await input_task_assignees(update, context)
     elif action == 'edit_tasks':
         """await edit_tasks(update, context)
         return EDIT_TASKS"""
@@ -570,6 +567,65 @@ group_conversation_handler = ConversationHandler(
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 
+(SELECT_TASK, CREATE_TASK_NAME, CREATE_TASK_DESCRIPTION, CREATE_TASK_DEADLINE, CREATE_TASK_RECURRING,
+ CONFIRM_TASK_CREATION, SELECT_EDIT_OPTION, HANDLE_TASK_ACTION, CONFIRM_TASK_EDIT, SELECT_TASK_ASSIGNEES) = range(10)
+
+
+async def input_task_assignees(update: Update, context: CallbackContext) -> int:
+    group = context.user_data['current_group']
+    member_list = [member for member in group.members]
+    context.user_data['member_list'] = member_list
+    context.user_data['task_assignees'] = list()
+    context.user_data['task_assignee_names'] = list()
+    reply_markup = await member_list_keyboard(member_list, confirm=True)
+    await update.effective_user.send_message("Выберите пользователей для назначения задачи (по одному):",
+                                             reply_markup=reply_markup)
+    return SELECT_TASK_ASSIGNEES
+
+
+async def proceed_with_assignees(update: Update, context: CallbackContext):
+    if context.user_data.get('editing_new_task'):
+        context.user_data['editing_new_task'] = False
+        retval = await confirm_task_creation(update, context)
+        return retval
+    if not context.user_data.get('task_assignees') or len(context.user_data.get('task_assignees')) == 0:
+        await update.effective_user.send_message("Не выбрано ни одного пользователя. Выберите хотя бы одного, "
+                                                 "или отмените операцию (/cancel)",)
+        return SELECT_TASK_ASSIGNEES
+    await update.effective_user.send_message("Введите название новой задачи:",
+                                             reply_markup=ReplyKeyboardRemove())
+    return CREATE_TASK_NAME
+
+
+async def handle_task_assignee_selection(update: Update, context: CallbackContext) -> int:
+    selected_option = update.message.text.split(" - ")[0]
+    if selected_option.lower() == "готово":
+        return await proceed_with_assignees(update, context)
+    try:
+        selected_option = int(selected_option)
+    except ValueError:
+        await update.message.reply_text("Неверный ввод! Используйте кнопки из клавиатуры под полем ввода.")
+        return SELECT_TASK_ASSIGNEES
+
+    selected_member = next(
+        (member for member in context.user_data['member_list'] if member.member_tid == selected_option), None)
+    if not selected_member:
+        await update.message.reply_text("Участник не найден, попробуйте снова.")
+        return SELECT_TASK_ASSIGNEES
+    context.user_data.get('task_assignees', []).append(selected_member)
+    try:
+        name = update.message.text.split(" - ")[1]
+        context.user_data.get('task_assignee_names', []).append(name)
+        context.user_data['member_list'] = [member for member in context.user_data['member_list'] if
+                                            member.member_tid != selected_option]
+        await update.message.reply_text(f"Участник {selected_member.member_tid} добавлен. Выберите ещё "
+                                        f"одного или нажмите 'Готово' для завершения.",
+                                        reply_markup=await member_list_keyboard(context.user_data['member_list'], True))
+        return SELECT_TASK_ASSIGNEES
+    except IndexError:
+        await update.message.reply_text("Неверный ввод! Используйте кнопки из клавиатуры под полем ввода.")
+        return SELECT_TASK_ASSIGNEES
+
 
 group_task_conversation_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(handle_task_action_selection, pattern=r'^manage_tasks_')],
@@ -582,7 +638,8 @@ group_task_conversation_handler = ConversationHandler(
         CONFIRM_TASK_CREATION: [CallbackQueryHandler(handle_confirmation, pattern=r'^task_confirm')],
         SELECT_EDIT_OPTION: [CallbackQueryHandler(handle_edit_option, pattern=r'^task_edit')],
         HANDLE_TASK_ACTION: [CallbackQueryHandler(handle_task_action, pattern=r'^task_action_')],
-        CONFIRM_TASK_EDIT: [CallbackQueryHandler(handle_edit_confirmation, pattern=r'^task_confirm')]
+        CONFIRM_TASK_EDIT: [CallbackQueryHandler(handle_edit_confirmation, pattern=r'^task_confirm')],
+        SELECT_TASK_ASSIGNEES: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_task_assignee_selection)],
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )

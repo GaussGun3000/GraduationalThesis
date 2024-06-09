@@ -7,12 +7,13 @@ from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, C
     CallbackQueryHandler
 
 from .basic_commands import cancel
-from ..utils.api import get_user_tasks, update_task, create_task, get_user, delete_task
+from ..utils.api import get_user_tasks, update_task, create_task, get_user, delete_task, get_user_by_oid
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
-from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard
+from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, member_list_keyboard
 from ..keyboards.inline_kb import task_menu, task_action_buttons, confirmation_keyboard, edit_task_options_keyboard
-from ..models import Task
+from ..models import Task, GroupMember
+from ..utils.states import reset_task_context
 
 db_to_user_recurring_map = {
     "daily": "Ежедневно",
@@ -23,7 +24,7 @@ db_to_user_recurring_map = {
 
 """Viewing and completing tasks"""
 (SELECT_TASK, CREATE_TASK_NAME, CREATE_TASK_DESCRIPTION, CREATE_TASK_DEADLINE, CREATE_TASK_RECURRING,
- CONFIRM_TASK_CREATION, SELECT_EDIT_OPTION,  HANDLE_TASK_ACTION, CONFIRM_TASK_EDIT) = range(9)
+ CONFIRM_TASK_CREATION, SELECT_EDIT_OPTION,  HANDLE_TASK_ACTION, CONFIRM_TASK_EDIT, SELECT_TASK_ASSIGNEES) = range(10)
 
 
 def generate_task_statistics(tasks: list[Task]):
@@ -218,6 +219,7 @@ async def confirm_task_creation(update: Update, context: CallbackContext) -> int
         await confirm_task_edit(update, context)
         return CONFIRM_TASK_EDIT
     task = context.user_data['new_task']
+    assignee_names = context.user_data.get("task_assignee_names")
     recurrent = db_to_user_recurring_map.get(task['recurring']) if task['recurring'] else "Нет"
     confirmation_message = (
         f"Подтвердите создание задачи:\n"
@@ -225,8 +227,9 @@ async def confirm_task_creation(update: Update, context: CallbackContext) -> int
         f"Описание: {task['description']}\n"
         f"Дедлайн: {isoparse(task['deadline']).strftime('%d.%m.%y %H:%M')}\n"
         f"Периодичность: {recurrent}"
-        "\n\nОтменить - /cancel"
     )
+    confirmation_message += f"\nНазначена: {', '.join(assignee_names)}" if assignee_names else ""
+    confirmation_message += "\n\nОтменить - /cancel"
     await update.message.reply_text(confirmation_message, reply_markup=confirmation_keyboard())
     return CONFIRM_TASK_CREATION
 
@@ -308,13 +311,15 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> int:
         await query.message.delete()
         user_id = update.effective_user.id
         user_data = await get_user(user_id)
+        assignees = context.user_data.get('task_assignees', None)
         new_task_data = {
             'title': context.user_data['new_task']['title'],
             'description': context.user_data['new_task']['description'],
             'status': 'open',
+            'group_oid': context.user_data.get('current_group') ,
             'deadline': context.user_data['new_task']['deadline'],
             'recurring': context.user_data['new_task']['recurring'],
-            'assigned_to': [user_data.user_oid],
+            'assigned_to': [a.member_oid for a in assignees] if assignees else [user_data.user_oid],
             'creator_oid': user_data.user_oid,
             'last_updated': datetime.now(timezone.utc).isoformat()
         }
@@ -324,13 +329,13 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> int:
             await query.message.reply_text("Задача создана.", reply_markup=ReplyKeyboardRemove())
         else:
             await query.message.reply_text("Не удалось создать задачу. Попробуйте снова.", reply_markup=ReplyKeyboardRemove())
-        context.user_data.pop('tasks', None)
-        context.user_data.pop('new_task', None)
-        context.user_data.pop('editing_new_task', None)
+        reset_task_context(context)
         return ConversationHandler.END
     elif query.data == 'task_confirm_edit':
         await query.message.delete()
-        edit_message = await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_task_options_keyboard())
+        group_task = len(context.user_data.get('task_assignees', [])) > 0
+        edit_message = await query.message.reply_text("Что вы хотите изменить?",
+                                                      reply_markup=edit_task_options_keyboard(group_task))
         context.user_data['edit_message_id'] = edit_message.message_id
         return SELECT_EDIT_OPTION
 
@@ -355,18 +360,35 @@ async def handle_edit_option(update: Update, context: CallbackContext) -> int:
         await query.message.reply_text("Укажите новую периодичность задачи (выберите из предложенных или укажите своё <число> дней):", reply_markup=recurring_keyboard())
         context.user_data['editing_new_task'] = True
         return CREATE_TASK_RECURRING
+    elif query.data == 'task_edit_assignees':
+        group = context.user_data['current_group']
+        await query.message.reply_text("Выберите новых пользователей:",
+                                       reply_markup=member_list_keyboard(group.members))
+        context.user_data['editing_new_task'] = True
+        return SELECT_TASK_ASSIGNEES
 
 
 """Editing tasks"""
 
 
+async def get_assignee_names(assignee_list: list):
+    names = list()
+    for member in assignee_list:
+        oid = member.member_oid if isinstance(member, GroupMember) else member
+        user = await get_user_by_oid(oid)
+        names.append(user.name)
+    return names
+
+
 async def confirm_task_edit(update: Update, context: CallbackContext):
     current_task = context.user_data.get('current_task')
     new_data = context.user_data.get('new_task')
+    assignee_names = await get_assignee_names(context.user_data.get("task_assignees", current_task.assigned_to))
     current_task.title = new_data.get('title', current_task.title)
     current_task.description = new_data.get('description', current_task.description)
     current_task.deadline = new_data.get('deadline', current_task.deadline)
     current_task.recurring = new_data.get('recurring', current_task.recurring)
+    current_task.assigned_to = context.user_data.get("task_assignees", current_task.assigned_to)
     recurrent = db_to_user_recurring_map.get(current_task.recurring) if current_task.recurring else "Нет"
     confirmation_message = (
         f"Подтвердите новые значения для задачи:\n"
@@ -374,8 +396,9 @@ async def confirm_task_edit(update: Update, context: CallbackContext):
         f"Описание: {current_task.description}\n"
         f"Дедлайн: {isoparse(current_task.deadline).strftime('%d.%m.%y %H:%M')}\n"
         f"Периодичность: {recurrent}"
-        "\n\nОтменить - /cancel"
     )
+    confirmation_message += f"\nНазначена: {', '.join(assignee_names)}" if assignee_names else ""
+    confirmation_message += "\n\nОтменить - /cancel"
     await update.message.reply_text(confirmation_message, reply_markup=confirmation_keyboard())
 
 
@@ -392,10 +415,7 @@ async def handle_edit_confirmation(update: Update, context: CallbackContext) -> 
         else:
             await query.message.reply_text("Не удалось обновить задачу. Попробуйте снова.",
                                            reply_markup=ReplyKeyboardRemove())
-        context.user_data.pop('tasks', None)
-        context.user_data.pop('new_task', None)
-        context.user_data.pop('editing_task', None)
-        context.user_data.pop('editing_new_task', None)
+        reset_task_context(context)
         return ConversationHandler.END
     elif query.data == 'task_confirm_edit':
         await query.message.delete()

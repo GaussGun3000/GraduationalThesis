@@ -32,6 +32,18 @@ async def get_user(user_tid: int) -> User | None:
         return None
 
 
+async def get_user_by_oid(user_oid: str) -> User | None:
+    url = f"{API_BASE_URL}/user/oid/{user_oid}"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            data = await response.json()
+            return User(**data)
+        return None
+
+
+
+
+
 async def create_user(user_data: dict):
     url = f"{API_BASE_URL}/user"
     async with session.post(url, json=user_data, headers=HEADERS) as response:
