@@ -148,3 +148,26 @@ def admin_action_keyboard():
         [InlineKeyboardButton("Назад к меню группы", callback_data='manage_admin_goback')]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def member_action_keyboard(member):
+    permission_button_text = "➕доступ к финансам" if member.permissions.get('financial') not in ("expenses",) else\
+        "⛔доступ к финансам"
+    keyboard = [
+        [InlineKeyboardButton("Удалить", callback_data='manage_member_delete')],
+        [InlineKeyboardButton(permission_button_text, callback_data='manage_member_toggle_finance')],
+        [InlineKeyboardButton("Назад к меню группы", callback_data='manage_member_goback')]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def task_management_keyboard(is_admin: bool):
+    keyboard = [
+        [InlineKeyboardButton("Просмотреть задачи", callback_data='manage_tasks_view')],
+    ]
+    if is_admin:
+        keyboard.append([InlineKeyboardButton("Создать групповую", callback_data='manage_tasks_create')])
+        keyboard.append([InlineKeyboardButton("Редактировать групповые", callback_data='manage_tasks_edit')])
+    return InlineKeyboardMarkup(keyboard)
+
+

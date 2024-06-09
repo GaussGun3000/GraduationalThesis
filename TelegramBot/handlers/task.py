@@ -91,7 +91,7 @@ async def task_main_menu_callback(update: Update, context: CallbackContext) -> i
         await update.effective_user.send_message("Выберите задачу: ",
                                                  reply_markup=active_tasks_keyboard(tasks_sorted))
     elif query.data == 'archive_tasks':
-        active_tasks = [task for task in context.user_data.get('tasks', []) if task.status not in ['active', 'archive']]
+        active_tasks = [task for task in context.user_data.get('tasks', []) if task.status not in ['active', ]]
         active_tasks_sorted = sorted(active_tasks, key=lambda x: isoparse(x.deadline))
         context.user_data['tasks_selected'] = active_tasks_sorted
         await update.effective_user.send_message("Выберите задачу: ",
@@ -111,7 +111,7 @@ async def select_task(update: Update, context: CallbackContext) -> int:
             f"\tЗадача {selected_task.title}\n"
             f"Описание: {selected_task.description}\n"
             f"Статус: {'Активна' if selected_task.status == 'open' else 'Закрыта'}\n"
-            f"Дедлайн: {isoparse(selected_task.deadline).strftime('%d:%m:%y %H:%M')}\n"
+            f"Дедлайн: {isoparse(selected_task.deadline).strftime('%d.%m.%y %H:%M')}\n"
             f"Цикличность: {recurrent}\n"
         )
         task_details += f"Завершена {selected_task.completion_date}" if selected_task.completion_date else ""

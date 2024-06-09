@@ -3,26 +3,32 @@ from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, C
     CallbackQueryHandler
 
 from .basic_commands import cancel
+from .task import select_task, input_task_name, input_task_description, input_task_deadline, input_task_recurring, \
+    handle_confirmation, handle_edit_option, handle_task_action, handle_edit_confirmation
 from ..utils.api import get_user_tasks, update_task, create_task, get_user, delete_task, get_financial_info, \
     create_financial, update_reset_day, create_category, update_category, create_expense, get_group, create_group, \
-    get_user_groups, get_created_group, add_group_member, create_user, update_group, set_member_role
+    get_user_groups, get_created_group, add_group_member, create_user, update_group, set_member_role, \
+    update_group_members, get_group_tasks
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, generate_category_keyboard, \
-    admin_list_keyboard, member_list_keyboard
+    admin_list_keyboard, member_list_keyboard, go_back_kb
 from ..keyboards.inline_kb import financial_menu, category_menu, fin_confirmation_keyboard, edit_fin_options_keyboard, \
     expense_confirmation_keyboard, select_group_keyboard, confirm_or_edit_keyboard, edit_group_options_keyboard, \
-    group_actions, menu_or_exit, admin_action_keyboard
+    group_actions, menu_or_exit, admin_action_keyboard, member_action_keyboard, task_management_keyboard
 from ..models import Group, GroupMember, User
 from ..utils.states import reset_financial_context, reset_group_context
 from ..config import BOT_URL
 
 (CREATE_GROUP_NAME, CREATE_GROUP_DESCRIPTION, ADD_GROUP_MEMBERS, CONFIRM_GROUP_CREATION, EDIT_GROUP,
  EDIT_EXISTING_GROUP, SELECT_GROUP_OPTION, TASK_MENU_OR_EXIT, MANAGE_ADMINS, ADMIN_ACTION, SELECT_NEW_ADMIN,
- ) = range(11)
+ MANAGE_MEMBERS, MEMBER_ACTION, INPUT_NEW_MEMBER, MANAGE_TASKS,) = range(15)
+
+(SELECT_TASK, CREATE_TASK_NAME, CREATE_TASK_DESCRIPTION, CREATE_TASK_DEADLINE, CREATE_TASK_RECURRING,
+ CONFIRM_TASK_CREATION, SELECT_EDIT_OPTION,  HANDLE_TASK_ACTION, CONFIRM_TASK_EDIT) = range(9)
 
 
-async def group_command(update: Update, context: CallbackContext) -> None:
+async def group_command(update: Update, context: CallbackContext) -> int:
     reset_group_context(context)
     user_tid = update.effective_user.id
     created_group = await get_created_group(user_tid)
@@ -33,10 +39,11 @@ async def group_command(update: Update, context: CallbackContext) -> None:
         context.user_data['my_group'] = created_group
     if not created_group and not user_groups and not user_data.is_premium():
         await update.message.reply_text("Вы не состоите в группах и у вас нет премиума для создания группы.")
-        return
+        return ConversationHandler.END
 
     await update.message.reply_text("Выберите группу для управления:",
                                     reply_markup=select_group_keyboard(user_data, created_group, user_groups))
+    return ConversationHandler.END
 
 
 async def display_group_info(update: Update, context: CallbackContext) -> None:
@@ -88,10 +95,29 @@ async def manage_group_admins(update: Update, context: CallbackContext):
     group = context.user_data['current_group']
     admin_list = [member for member in group.members if member.role == 'admin']
     context.user_data['admins'] = admin_list
-    msg = await update.effective_user.send_message("Выберите администратора для изменений, или \"Новый админ\", чтобы "
-                                                   "выбрать нового, или \"Назад\", чтобы вернутся в предыдущее меню",
+    msg = await update.effective_user.send_message('Выберите администратора для изменений, или "Новый админ", чтобы '
+                                                   'выбрать нового, или "Назад", чтобы вернутся в предыдущее меню',
                                                    reply_markup=await admin_list_keyboard(admin_list))
     context.bot_data['prev_message'] = msg
+
+
+async def manage_group_members(update: Update, context: CallbackContext):
+    group = context.user_data['current_group']
+    member_list = [member for member in group.members if member.role != 'creator']
+    context.user_data['member_list'] = member_list
+    reply_markup = await member_list_keyboard(member_list)
+    msg = await update.effective_user.send_message("Для приглашения пользователей в группу можно использовать "
+                                                   f"ссылку: `{generate_invite_link(group.group_oid)}`\n\n"
+                                                   f"Выберите участника для управления:",
+                                                   reply_markup=reply_markup, parse_mode='Markdown')
+    context.bot_data['prev_message'] = msg
+
+
+async def manage_group_tasks(update: Update, context: CallbackContext):
+    group = context.user_data['current_group']
+    member_info = context.user_data.get('member_info')
+    is_admin = member_info.role in ["creator", "admin"]
+    await update.effective_user.send_message("Управление задачами группы:", reply_markup=task_management_keyboard(is_admin))
 
 
 async def handle_group_action(update: Update, context: CallbackContext) -> int:
@@ -104,14 +130,14 @@ async def handle_group_action(update: Update, context: CallbackContext) -> int:
                                        reply_markup=edit_group_options_keyboard(True))
         return EDIT_EXISTING_GROUP
     elif query.data == 'manage_group_tasks':
-        await query.message.reply_text("Управление задачами группы: функция в разработке.")
+        await manage_group_tasks(update, context)
         return ConversationHandler.END
     elif query.data == 'manage_group_finances':
         await query.message.reply_text("Управление финансами группы: функция в разработке.")
         return ConversationHandler.END
     elif query.data == 'manage_group_members' and member_info.role in ["creator", "admin"]:
-        await query.message.reply_text("Управление участниками группы: функция в разработке.")
-        return ConversationHandler.END
+        await manage_group_members(update, context)
+        return MANAGE_MEMBERS
     elif query.data == 'manage_group_admins' and member_info.role == "creator":
         await manage_group_admins(update, context)
         return MANAGE_ADMINS
@@ -132,11 +158,18 @@ async def select_admin(update: Update, context: CallbackContext) -> int:
         group = context.user_data['current_group']
         await context.bot_data.get('prev_message').delete()
         member_list = [member for member in group.members if member.role not in ('admin', 'creator')]
+        context.user_data['member_list'] = member_list
         context.bot_data['prev_message'] = await (update.message.
                                                   reply_text("Выберите пользователя для повышения до администратора "
                                                              "(отмена - возврат в меню группы)",
                                                              reply_markup=await member_list_keyboard(member_list)))
         return SELECT_NEW_ADMIN
+    try:
+        selected_option = int(selected_option)
+    except ValueError:
+        await update.effective_user.send_message("Неверный ввод! Используйте кнопки из клавиатуры под полем ввода, "
+                                                 "или команду /cancel для выхода из режима работы с группой",
+                                                 reply_markup=await admin_list_keyboard(context.user_data['admins']))
     selected_admin = next(
         (admin for admin in context.user_data['admins'] if str(admin.member_tid) == selected_option), None)
     context.user_data['selected_admin'] = selected_admin
@@ -147,13 +180,22 @@ async def select_admin(update: Update, context: CallbackContext) -> int:
 
 async def select_new_admin(update: Update, context: CallbackContext) -> int:
     selected_option = update.message.text.split(" - ")[0]
+    members = context.user_data['member_list']
     if selected_option == "Назад":
+        await update.message.delete()
         await context.bot_data.get('prev_message').delete()
         await display_group_info(update, context)
         return SELECT_GROUP_OPTION
 
+    try:
+        selected_option = int(selected_option)
+    except ValueError:
+        await update.effective_user.send_message("Неверный ввод! Используйте кнопки из клавиатуры под полем ввода, "
+                                                 "или команду /cancel для выхода из режима работы с группой",
+                                                 reply_markup=await member_list_keyboard(members))
+        return SELECT_NEW_ADMIN
     selected_member = next(
-        (member for member in context.user_data['current_group'].members if str(member.member_tid) == selected_option),
+        (member for member in members if str(member.member_tid) == selected_option),
         None)
     if selected_member:
         group = context.user_data['current_group']
@@ -176,7 +218,8 @@ async def handle_admin_action(update: Update, context: CallbackContext) -> int:
         selected_admin = context.user_data['selected_admin']
         selected_admin.role = 'member'
         if await set_member_role(group.group_oid, selected_admin):
-            await query.message.reply_text(f"Роль администратора снята с ({selected_admin.member_tid})", reply_markup=menu_or_exit())
+            await query.message.reply_text(f"Роль администратора снята с ({selected_admin.member_tid})",
+                                           reply_markup=menu_or_exit())
         else:
             await query.message.reply_text("Не удалось удалить администратора.", reply_markup=menu_or_exit())
         return TASK_MENU_OR_EXIT
@@ -190,8 +233,140 @@ async def handle_admin_action(update: Update, context: CallbackContext) -> int:
 """Managing members"""
 
 
+async def select_member(update: Update, context: CallbackContext) -> int:
+    selected_option = update.message.text.split(" - ")[0]
+    members = context.user_data['member_list']
+    if selected_option.lower() == "назад":
+        await update.message.delete()
+        await display_group_info(update, context)
+        await context.bot_data.get('prev_message').delete()
+        return SELECT_GROUP_OPTION
+    elif selected_option.lower() == "новый":
+        msg = await update.effective_user.send_message("Укажите telegram ID пользователя. Он должен быть уже "
+                                                       "авторизован "
+                                                       "в боте! В ином случае, отправьте ему пригласительную ссылку",
+                                                       reply_markup=go_back_kb())
+        context.bot_data['prev_message'] = msg
+        return INPUT_NEW_MEMBER
+    try:
+        selected_option = int(selected_option)
+    except ValueError:
+        await update.effective_user.send_message("Неверный ввод! Используйте кнопки из клавиатуры под полем ввода, "
+                                                 "или команду /cancel для выхода из режима работы с группой",
+                                                 reply_markup=await member_list_keyboard(members))
+        return MANAGE_MEMBERS
+    selected_member = next(
+        (member for member in members if member.member_tid == selected_option), None)
+    context.user_data['selected_member'] = selected_member
+    await update.message.reply_text("Выберите действие для участника:",
+                                    reply_markup=member_action_keyboard(selected_member))
+    return MEMBER_ACTION
 
 
+async def handle_member_action(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    await query.answer()
+    action = query.data
+    member = context.user_data['selected_member']
+    await query.message.delete()
+    if action == "manage_member_delete":
+        group = context.user_data['current_group']
+        group.members = [m for m in group.members if m.member_tid != member.member_tid]
+        if await update_group_members(group):
+            await query.message.reply_text("Участник успешно удален.", reply_markup=menu_or_exit())
+        else:
+            await query.message.reply_text("Не удалось удалить участника.", reply_markup=menu_or_exit())
+        return TASK_MENU_OR_EXIT
+    elif action == "manage_member_toggle_finance":
+        if 'financial' in member.permissions:
+            member.permissions.pop('financial')
+        else:
+            member.permissions['financial'] = "expenses"
+        if await update_group_members(context.user_data['current_group']):
+            await query.message.reply_text("Права участника обновлены.", reply_markup=menu_or_exit())
+        else:
+            await query.message.reply_text("Не удалось обновить права участника.", reply_markup=menu_or_exit())
+        return TASK_MENU_OR_EXIT
+    elif action == "manage_member_goback":
+        await display_group_info(update, context)
+        return SELECT_GROUP_OPTION
+    return ConversationHandler.END
+
+
+async def input_new_member_tid(update: Update, context: CallbackContext) -> int:
+    if update.message.text.lower() == "назад":
+        await update.message.delete()
+        await display_group_info(update, context)
+        await context.bot_data.get('prev_message').delete()
+        return SELECT_GROUP_OPTION
+    try:
+        user_tid = int(update.message.text.strip())
+    except ValueError:
+        msg = await update.message.reply_text("Неверный формат ввода, попробуйте снова", reply_markup=go_back_kb())
+        context.bot_data['prev_message'] = msg
+        return INPUT_NEW_MEMBER
+    user_data = await get_user(user_tid)
+    if not user_data:
+        await update.message.reply_text("Пользователь не найден. Попробуйте снова или \"Назад\", чтобы вернуться.",
+                                        reply_markup=go_back_kb())
+        return INPUT_NEW_MEMBER
+
+    new_member = GroupMember(
+        role='member',
+        permissions={},
+        member_oid=user_data.user_oid,
+        member_tid=user_data.user_tid
+    )
+    group = context.user_data['current_group']
+    group.members.append(new_member)
+    if await add_group_member(group.group_oid, new_member):
+        await update.message.reply_text("Новый участник успешно добавлен.", reply_markup=menu_or_exit())
+    else:
+        await update.message.reply_text("Не удалось добавить нового участника.", reply_markup=menu_or_exit())
+
+    return TASK_MENU_OR_EXIT
+
+
+"""Managing tasks"""
+
+
+async def view_group_tasks(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    group = context.user_data['current_group']
+    member_info = context.user_data.get('member_info')
+    user_tid = update.effective_user.id
+
+    all_group_tasks = await get_group_tasks(group.group_oid)
+    if member_info.role in ["creator", "admin"]:
+        group_tasks = all_group_tasks
+    else:
+        group_tasks = [task for task in all_group_tasks if user_tid in task.assigned_to]
+    context.user_data['tasks_selected'] = group_tasks
+    if not group_tasks:
+        await query.message.reply_text("Задачи не найдены.", reply_markup=menu_or_exit())
+        return TASK_MENU_OR_EXIT
+
+    reply_markup = active_tasks_keyboard(group_tasks)
+    await query.message.reply_text("Выберите задачу:", reply_markup=reply_markup)
+    return SELECT_TASK
+
+
+async def handle_task_action_selection(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    await query.answer()
+    action = query.data
+
+    if action == 'manage_tasks_view':
+        return await view_group_tasks(update, context)
+    elif action == 'manage_tasks_create':
+        """await create_task(update, context)
+        return CREATE_TASK"""
+    elif action == 'edit_tasks':
+        """await edit_tasks(update, context)
+        return EDIT_TASKS"""
+    return MANAGE_TASKS
 
 
 """Creating a group"""
@@ -325,8 +500,8 @@ async def confirm_group_creation(update: Update, context: CallbackContext) -> in
     return ConversationHandler.END
 
 
-async def generate_invite_link(group_oid: str) -> str:
-    return f"https://{BOT_URL}/join?group={group_oid}"
+def generate_invite_link(group_oid: str) -> str:
+    return f"{BOT_URL}?start=join_{group_oid}"
 
 
 async def edit_group_options(update: Update, context: CallbackContext) -> int:
@@ -373,36 +548,6 @@ async def menu_or_exit_handler(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-async def join_group(update: Update, context: CallbackContext) -> None:
-    user_tid = update.effective_user.id
-    group_oid = context.args[0]
-    group = await get_group(group_oid)
-    if not group:
-        await update.message.reply_text("Группа не найдена или ссылка недействительна.")
-        return
-    user_data = await get_user(user_tid)
-    if not user_data:
-        current_date = datetime.now(timezone.utc).isoformat()
-        user = User("", user_tid, update.effective_user.name, "", "free", current_date, "", current_date)
-        response = await create_user(user.to_request_dict())
-        if response.status != 201:
-            await update.message.reply_text("Ошибка с данными пользователя. Попробуйте ещё раз позже")
-            return
-        data = await response.json()
-        user_oid = data.get('user_oid')
-    user_oid = user_data.user_oid
-    new_member = GroupMember(
-        role='member',
-        permissions={},
-        member_oid=user_oid,
-        member_tid=user_tid)
-    success = await add_group_member(group_oid, new_member)
-    if success:
-        await update.message.reply_text(f"Вы успешно присоединились к группе '{group.name}'")
-    else:
-        await update.message.reply_text("Не удалось присоединиться к группе. Попробуйте снова.")
-
-
 group_conversation_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(group_selection_callback, pattern=r'^group_')],
     states={
@@ -416,7 +561,28 @@ group_conversation_handler = ConversationHandler(
         TASK_MENU_OR_EXIT: [CallbackQueryHandler(menu_or_exit_handler, pattern=r'^go_to_')],
         MANAGE_ADMINS: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_admin)],
         ADMIN_ACTION: [CallbackQueryHandler(handle_admin_action, pattern=r'^manage_admin_')],
-        SELECT_NEW_ADMIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_new_admin)]
+        SELECT_NEW_ADMIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_new_admin)],
+        MANAGE_MEMBERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_member)],
+        MEMBER_ACTION: [CallbackQueryHandler(handle_member_action, pattern=r'^manage_member_')],
+        INPUT_NEW_MEMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_new_member_tid)],
+        # MANAGE_TASKS: [CallbackQueryHandler(handle_task_action_selection, pattern=r'^manage_tasks_')],
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+
+
+group_task_conversation_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(handle_task_action_selection, pattern=r'^manage_tasks_')],
+    states={
+        SELECT_TASK: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_task)],
+        CREATE_TASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_task_name)],
+        CREATE_TASK_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_task_description)],
+        CREATE_TASK_DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_task_deadline)],
+        CREATE_TASK_RECURRING: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_task_recurring)],
+        CONFIRM_TASK_CREATION: [CallbackQueryHandler(handle_confirmation, pattern=r'^task_confirm')],
+        SELECT_EDIT_OPTION: [CallbackQueryHandler(handle_edit_option, pattern=r'^task_edit')],
+        HANDLE_TASK_ACTION: [CallbackQueryHandler(handle_task_action, pattern=r'^task_action_')],
+        CONFIRM_TASK_EDIT: [CallbackQueryHandler(handle_edit_confirmation, pattern=r'^task_confirm')]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )

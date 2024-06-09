@@ -51,5 +51,9 @@ async def member_list_keyboard(members: list):
         member_info = await get_user(member.member_tid)
         admin_name = f"{member_info.user_tid} - {member_info.name}"
         member_names.append(admin_name)
-    admin_keyboard = [["Отмена"]] + [[name] for name in member_names]
+    admin_keyboard = [["Назад", "Новый"]] + [[name] for name in member_names]
     return ReplyKeyboardMarkup(admin_keyboard, one_time_keyboard=True, resize_keyboard=True)
+
+
+def go_back_kb():
+    return ReplyKeyboardMarkup([["Назад"]], one_time_keyboard=True, resize_keyboard=True)

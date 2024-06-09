@@ -29,3 +29,16 @@ def reset_group_context(context: CallbackContext):
     ]
     for key in keys_to_remove:
         context.user_data.pop(key, None)
+
+
+def reset_task_context(context: CallbackContext):
+    keys_to_remove = [
+        'new_task'
+        'editing_new_task',
+        'editing_task',
+        'tasks',
+        'tasks_selected',
+        'current_task'
+    ]
+    for key in keys_to_remove:
+        context.user_data.pop(key, None)

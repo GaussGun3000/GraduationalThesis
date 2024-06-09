@@ -214,12 +214,19 @@ async def add_group_member(group_oid: str, member: GroupMember) -> bool:
     url = f"{API_BASE_URL}/group/{group_oid}/member"
     data = {"member": member.to_request_dict()}
     async with session.post(url, json=data, headers=HEADERS) as response:
-        return response.status == 200
+        return response.status == 201
 
 
 async def update_group(group: Group) -> bool:
     url = f"{API_BASE_URL}/group/{group.group_oid}"
     data = group.to_request_dict()
+    async with session.put(url, json=data, headers=HEADERS) as response:
+        return response.status == 200
+
+
+async def update_group_members(group: Group) -> bool:
+    url = f"{API_BASE_URL}/group/{group.group_oid}/members"
+    data = {"members": [member.to_request_dict() for member in group.members]}
     async with session.put(url, json=data, headers=HEADERS) as response:
         return response.status == 200
 
@@ -232,6 +239,20 @@ async def set_member_role(group_oid: str, member: GroupMember) -> bool:
     }
     async with session.put(url, json=data, headers=HEADERS) as response:
         return response.status == 200
+
+
+async def get_group_tasks(group_oid: str):
+    url = f"{API_BASE_URL}/task/group/{group_oid}"
+    async with session.get(url, headers=HEADERS) as response:
+        if response.status == 200:
+            data = await response.json()
+            tasks = list()
+            for item in data:
+                item['task_oid'] = item.pop("_id")
+                tasks.append(Task(**item))
+            return tasks
+        return None
+
 
 async def close_session():
     await session.close()
