@@ -1,19 +1,15 @@
 import re
-
-from dateutil.relativedelta import relativedelta
-from dateutil.parser import parse as date_parser
 from telegram import Update, ReplyKeyboardRemove, Message
 from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, CommandHandler, filters, \
     CallbackQueryHandler
 
 from .basic_commands import cancel
-from ..utils.api import get_user_tasks, update_task, create_task, get_user, delete_task, get_financial_info, \
+from ..utils.api import get_user, delete_task, get_financial_info, \
     create_financial, update_reset_day, create_category, update_category, create_expense
 from datetime import datetime, timezone, timedelta
-from dateutil.parser import isoparse
-from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, generate_category_keyboard
+from ..keyboards.reply_kb import generate_category_keyboard
 from ..keyboards.inline_kb import financial_menu, category_menu, fin_confirmation_keyboard, edit_fin_options_keyboard, \
-    expense_confirmation_keyboard, back_or_exit
+    expense_confirmation_keyboard, back_or_exit, main_menu
 from ..models import Financial, Category, Expense
 from ..utils.states import reset_financial_context, reset_all_context
 
@@ -93,7 +89,7 @@ async def finance_command(update: Update, context: CallbackContext) -> int:
 
 async def send_categories_stats(update: Update, context: CallbackContext, orig_bot_msg: str):
     stats = await get_statistics_by_categories(context)
-    await update.effective_user.send_message(stats) #, reply_markup=main_menu())
+    await update.effective_user.send_message(stats, reply_markup=main_menu())
     return ConversationHandler.END
 
 
@@ -381,7 +377,7 @@ async def back_or_exit_handler(update: Update, context: CallbackContext) -> int:
         return previous_state
     elif action == 'exit':
         context.user_data.clear()
-        await query.message.reply_text("Вы завершили взаимодействие и вернулись в главное меню.")
+        await query.message.reply_text("Вы завершили взаимодействие и вернулись в главное меню.", reply_markup=main_menu())
         return ConversationHandler.END
 
 

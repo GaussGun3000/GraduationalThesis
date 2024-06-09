@@ -198,3 +198,13 @@ def notifications_keyboard():
         [InlineKeyboardButton("Отключить уведомления", callback_data='notify_off')]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def main_menu():
+    keyboard = [
+        [InlineKeyboardButton("Задачи", callback_data='menu_tasks')],
+        [InlineKeyboardButton("Финансы", callback_data='menu_finances')],
+        [InlineKeyboardButton("Уведомления", callback_data='menu_notifications')],
+        [InlineKeyboardButton("Группы", callback_data='menu_groups')],
+    ]
+    return InlineKeyboardMarkup(keyboard)

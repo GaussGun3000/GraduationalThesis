@@ -16,9 +16,10 @@ from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, generate_category_keyboard, \
     admin_list_keyboard, member_list_keyboard, go_back_kb
-from ..keyboards.inline_kb import financial_menu, category_menu, select_group_keyboard, confirm_or_edit_keyboard, edit_group_options_keyboard, \
+from ..keyboards.inline_kb import financial_menu, category_menu, select_group_keyboard, confirm_or_edit_keyboard, \
+    edit_group_options_keyboard, \
     group_actions, menu_or_exit, admin_action_keyboard, member_action_keyboard, task_management_keyboard, \
-    group_financial_menu, back_or_exit
+    group_financial_menu, back_or_exit, main_menu
 from ..models import Group, GroupMember, User, Financial
 from ..utils.states import reset_group_context, reset_all_context
 from ..config import BOT_URL
@@ -38,7 +39,8 @@ async def group_command(update: Update, context: CallbackContext) -> int:
     if created_group:
         context.user_data['my_group'] = created_group
     if not created_group and not user_groups and not user_data.is_premium():
-        await update.message.reply_text("Вы не состоите в группах и у вас нет премиума для создания группы.")
+        await update.message.reply_text("Вы не состоите в группах и у вас нет премиума для создания группы.",
+                                        reply_markup=main_menu())
         return ConversationHandler.END
 
     await update.message.reply_text("Выберите группу для управления:",
@@ -86,8 +88,15 @@ async def group_selection_callback(update: Update, context: CallbackContext) -> 
 
     if query.data.startswith('group_'):
         group_id = query.data.split('_')[1]
-        await query.message.reply_text(f"Вы выбрали группу с ID: {group_id}")
-        return ConversationHandler.END
+        group = await get_group(group_id)
+        if not group:
+            await update.effective_user.send_message("Не удалось загрузить данные группы. Попробуйте ещё раз позже.",
+                                                     reply_markup=main_menu())
+            return ConversationHandler.END
+
+        context.user_data['current_group'] = group
+        await display_group_info(update, context)
+        return SELECT_GROUP_OPTION
 
 
 async def manage_group_admins(update: Update, context: CallbackContext):
@@ -463,7 +472,7 @@ async def input_group_name(update: Update, context: CallbackContext) -> int:
             return GROUP_MENU_OR_EXIT
         else:
             await update.message.reply_text("Не удалось применить изменения. Попробуйте ещё раз позже",
-                                            reply_markup=ReplyKeyboardRemove())
+                                            reply_markup=main_menu())
             return ConversationHandler.END
 
     context.user_data['new_group'] = {'name': group_name}
@@ -480,7 +489,7 @@ async def input_group_description(update: Update, context: CallbackContext) -> i
             return GROUP_MENU_OR_EXIT
         else:
             await update.message.reply_text("Не удалось применить изменения. Попробуйте ещё раз позже",
-                                            reply_markup=ReplyKeyboardRemove())
+                                            reply_markup=main_menu())
             return ConversationHandler.END
     context.user_data['new_group']['description'] = group_description
     if context.user_data.get('editing_new_group'):
@@ -561,7 +570,7 @@ async def confirm_group_creation(update: Update, context: CallbackContext) -> in
         await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_group_options_keyboard())
         return EDIT_GROUP
     else:
-        await query.message.reply_text("Создание группы отменено.", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text("Создание группы отменено.", reply_markup=main_menu())
     return ConversationHandler.END
 
 
@@ -609,7 +618,7 @@ async def menu_or_exit_handler(update: Update, context: CallbackContext) -> int:
         return SELECT_GROUP_OPTION
     elif query.data == 'go_to_exit':
         reset_group_context(context)
-        await query.message.reply_text("Выход из меню группы.", reply_markup=ReplyKeyboardRemove())
+        await query.message.reply_text("Выход из меню группы.", reply_markup=main_menu())
         return ConversationHandler.END
 
 
@@ -729,7 +738,8 @@ async def back_or_exit_handler(update: Update, context: CallbackContext) -> int:
         return previous_state
     elif action == 'exit':
         context.user_data.clear()
-        await query.message.reply_text("Вы завершили взаимодействие и вернулись в главное меню.")
+        await update.effective_user.send_message("Вы завершили взаимодействие и вернулись в главное меню.",
+                                                 reply_markup=main_menu())
         return ConversationHandler.END
 
 
