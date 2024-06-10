@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dateutil.parser import isoparse
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler
 from TelegramBot.config import BOT_TOKEN
 from TelegramBot.handlers.basic_commands import start_command, help_command
 from TelegramBot.handlers.financial import finance_command, financial_conversation_handler
@@ -54,6 +54,23 @@ async def notify_users(task, when):
             await application.bot.send_message(chat_id=user.user_tid, text=message)
 
 
+async def handle_main_menu(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    await query.answer()
+    action = query.data
+
+    if action == 'tasks':
+        return await task_command(update, context)
+    elif action == 'finances':
+        return await finance_command(update, context)
+    elif action == 'notifications':
+        return await notifications_command(update, context)
+    elif action == 'groups':
+        return await group_command(update, context)
+
+    return ConversationHandler.END
+
+
 def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -61,7 +78,8 @@ def main():
     application.add_handler(CommandHandler("finance", finance_command))
     application.add_handler(CommandHandler("group", group_command))
     application.add_handler(CommandHandler("notifications", notifications_command))
-    application.add_handler(CallbackQueryHandler(handle_notifications_selection, ))
+    application.add_handler(CallbackQueryHandler(handle_notifications_selection, pattern=r'^notify_'))
+    application.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r'^menu_'))
     application.add_handler(task_conversation_handler)
     application.add_handler(financial_conversation_handler)
     application.add_handler(group_conversation_handler)

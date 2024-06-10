@@ -5,8 +5,9 @@ from TelegramBot.keyboards.inline_kb import notifications_keyboard
 from TelegramBot.utils.api import update_user_notifications
 
 
-async def notifications_command(update: Update, context: CallbackContext) -> None:
+async def notifications_command(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Выберите настройки уведомлений:", reply_markup=notifications_keyboard())
+    return ConversationHandler.END
 
 
 async def handle_notifications_selection(update: Update, context: CallbackContext) -> int:

@@ -66,6 +66,23 @@ async def join_group_by_link(update: Update, context: CallbackContext, group_oid
         await update.message.reply_text("Не удалось присоединиться к группе. Попробуйте снова.")
 
 
+async def handle_main_menu(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    await query.answer()
+    action = query.data
+
+    if action == 'tasks':
+        await task_command(update, context)  # Вызов функции для работы с задачами
+    elif action == 'finances':
+        await finance_command(update, context)  # Вызов функции для работы с финансами
+    elif action == 'notifications':
+        await notifications_command(update, context)  # Вызов функции для настройки уведомлений
+    elif action == 'groups':
+        await groups_command(update, context)  # Вызов функции для работы с группами
+
+    return ConversationHandler.END
+
+
 async def cancel(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
     reset_task_context(context)

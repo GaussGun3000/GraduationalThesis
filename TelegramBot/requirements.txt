@@ -1,0 +1,4 @@
+python-telegram-bot==21.2
+aiohttp==3.9.5
+python-dateutil~=2.9.0.post0
+APScheduler~=3.10.4

@@ -5,7 +5,6 @@ from ..models import User
 from dataclasses import asdict
 from ..auth import token_required
 
-from ..schemas import UserSchema
 
 user_blueprint = Blueprint('user', __name__)
 

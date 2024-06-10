@@ -1,0 +1,12 @@
+FROM python:3.11.7-slim
+
+WORKDIR /app
+
+COPY TelegramBot/requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY TelegramBot /app/TelegramBot
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "TelegramBot/main.py"]

@@ -13,7 +13,6 @@ from ..utils.api import (get_user, get_financial_info, create_financial, get_gro
                          get_created_group, add_group_member, update_group, set_member_role, update_group_members,
                          get_group_tasks)
 from datetime import datetime, timezone, timedelta
-from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, generate_category_keyboard, \
     admin_list_keyboard, member_list_keyboard, go_back_kb
 from ..keyboards.inline_kb import financial_menu, category_menu, select_group_keyboard, confirm_or_edit_keyboard, \
