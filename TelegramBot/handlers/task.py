@@ -317,14 +317,14 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> int:
             'title': context.user_data['new_task']['title'],
             'description': context.user_data['new_task']['description'],
             'status': 'open',
-            'group_oid': context.user_data.get('current_group') ,
+            'group_oid': context.user_data.get('current_group', ""),
             'deadline': context.user_data['new_task']['deadline'],
             'recurring': context.user_data['new_task']['recurring'],
             'assigned_to': [a.member_oid for a in assignees] if assignees else [user_data.user_oid],
             'creator_oid': user_data.user_oid,
             'last_updated': datetime.now(timezone.utc).isoformat()
         }
-        task = Task(task_oid='-', group_oid="", **new_task_data)
+        task = Task(task_oid='-', **new_task_data)
         response = await create_task(task)
         if response.status == 201:
             await query.message.reply_text("Задача создана.", reply_markup=ReplyKeyboardRemove())

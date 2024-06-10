@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import CallbackContext, ConversationHandler
 
+from ..keyboards.inline_kb import main_menu
 from ..models import GroupMember, User
 from ..utils.api import check_and_create_user, create_user, get_user, get_group, add_group_member
 from ..utils.states import reset_financial_context, reset_group_context, reset_task_context
@@ -20,9 +21,11 @@ async def start_command(update: Update, context: CallbackContext) -> None:
         return
 
     if await check_and_create_user(user_tid, user_name):
-        await update.message.reply_text(f"Welcome, {user_name}!")
+        await update.message.reply_text(f"Добро пожаловать, {user_name}!"
+                                        f"Инструкция доступна по команде /help. Или если всё знакомо, можно сразу "
+                                        f"начинать пользоваться", reply_markup=main_menu())
     else:
-        await update.message.reply_text("Failed to register user. Please try again later.")
+        await update.message.reply_text("Не удалось вас зарегистрировать. Попробуйте команду /start ещё раз")
 
 
 async def help_command(update: Update, context: CallbackContext) -> None:
@@ -32,9 +35,11 @@ async def help_command(update: Update, context: CallbackContext) -> None:
         "Here are the available commands:\n"
         "/start - Начало работы\n"
         "/help - Помощь (текущая команда)\n"
-        # Add other commands as needed
+        "/task - просмотр \\ управление задачами\n"
+        "/finance - просмотр \\ управление финансами\n"
+        "/group - просмотр \\ управление группами"
     )
-    await update.message.reply_text(help_text)
+    await update.message.reply_text(help_text, reply_markup=main_menu())
 
 
 async def join_group_by_link(update: Update, context: CallbackContext, group_oid: str) -> None:
