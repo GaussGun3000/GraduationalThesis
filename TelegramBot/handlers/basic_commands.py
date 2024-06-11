@@ -6,7 +6,7 @@ from telegram.ext import CallbackContext, ConversationHandler
 from ..keyboards.inline_kb import main_menu
 from ..models import GroupMember, User
 from ..utils.api import check_and_create_user, create_user, get_user, get_group, add_group_member
-from ..utils.states import reset_financial_context, reset_group_context, reset_task_context
+from ..utils.states import reset_financial_context, reset_group_context, reset_task_context, reset_all_context
 
 
 async def start_command(update: Update, context: CallbackContext) -> None:
@@ -29,17 +29,20 @@ async def start_command(update: Update, context: CallbackContext) -> None:
 
 
 async def help_command(update: Update, context: CallbackContext) -> None:
+    reset_all_context(context)
     user = update.effective_user
 
     help_text = (
-        "Here are the available commands:\n"
+        "Доступные команды:\n"
         "/start - Начало работы\n"
         "/help - Помощь (текущая команда)\n"
         "/task - просмотр \\ управление задачами\n"
         "/finance - просмотр \\ управление финансами\n"
-        "/group - просмотр \\ управление группами"
+        "/group - просмотр \\ управление группами\n\n"
+        "Если нужно отменить действие, или же что-то зависло - можно всегда вернуться в главное меню по команде "
+        "/cancel.\n\n*Все команды в тексте этого меню - кликабельны*"
     )
-    await update.message.reply_text(help_text, reply_markup=main_menu())
+    await update.message.reply_text(help_text, reply_markup=main_menu(), parse_mode='Markdown')
 
 
 async def join_group_by_link(update: Update, context: CallbackContext, group_oid: str) -> None:
@@ -71,27 +74,10 @@ async def join_group_by_link(update: Update, context: CallbackContext, group_oid
         await update.message.reply_text("Не удалось присоединиться к группе. Попробуйте снова.")
 
 
-async def handle_main_menu(update: Update, context: CallbackContext) -> int:
-    query = update.callback_query
-    await query.answer()
-    action = query.data
-
-    if action == 'tasks':
-        await task_command(update, context)  # Вызов функции для работы с задачами
-    elif action == 'finances':
-        await finance_command(update, context)  # Вызов функции для работы с финансами
-    elif action == 'notifications':
-        await notifications_command(update, context)  # Вызов функции для настройки уведомлений
-    elif action == 'groups':
-        await groups_command(update, context)  # Вызов функции для работы с группами
-
-    return ConversationHandler.END
-
-
 async def cancel(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
     reset_task_context(context)
     reset_financial_context(context)
     reset_group_context(context)
-    await update.message.reply_text(f"Отмена операции.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(f"Отмена операции.", reply_markup=main_menu())
     return ConversationHandler.END

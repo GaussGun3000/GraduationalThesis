@@ -134,7 +134,6 @@ def update_user_notifications(user_tid):
 
 
 
-
 @user_blueprint.route('/user/<int:user_tid>', methods=['DELETE'])
 @token_required
 def delete_user(user_tid):

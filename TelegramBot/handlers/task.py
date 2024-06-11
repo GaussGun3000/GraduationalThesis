@@ -322,8 +322,8 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> int:
             'recurring': context.user_data['new_task']['recurring'],
             'assigned_to': [a.member_oid for a in assignees] if assignees else [user_data.user_oid],
             'creator_oid': user_data.user_oid,
-            'last_updated': datetime.now(timezone.utc).isoformat()
-        }
+            'last_updated': datetime.now(timezone.utc).isoformat(),
+            'notified': {"day_before": False, "week_before": False}}
         task = Task(task_oid='-', **new_task_data)
         response = await create_task(task)
         if response.status == 201:

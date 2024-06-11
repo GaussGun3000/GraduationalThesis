@@ -58,14 +58,14 @@ async def handle_main_menu(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     await query.answer()
     action = query.data
-
-    if action == 'tasks':
+    query.message.delete()
+    if action == 'menu_tasks':
         return await task_command(update, context)
-    elif action == 'finances':
+    elif action == 'menu_finances':
         return await finance_command(update, context)
-    elif action == 'notifications':
+    elif action == 'menu_notifications':
         return await notifications_command(update, context)
-    elif action == 'groups':
+    elif action == 'menu_groups':
         return await group_command(update, context)
 
     return ConversationHandler.END
