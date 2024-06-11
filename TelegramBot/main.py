@@ -58,7 +58,7 @@ async def handle_main_menu(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     await query.answer()
     action = query.data
-    query.message.delete()
+    await query.message.delete()
     if action == 'menu_tasks':
         return await task_command(update, context)
     elif action == 'menu_finances':
