@@ -83,7 +83,7 @@ async def finance_command(update: Update, context: CallbackContext) -> int:
     user_id = update.effective_user.id
     stats_message = await get_finance_statistics(financial_info)
 
-    await update.message.reply_text(f"{stats_message}", reply_markup=financial_menu())
+    await update.effective_user.send_message(f"{stats_message}", reply_markup=financial_menu())
     return ConversationHandler.END
 
 

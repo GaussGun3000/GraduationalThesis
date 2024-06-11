@@ -67,7 +67,7 @@ async def task_command(update: Update, context: CallbackContext) -> int:
     tasks = await get_user_tasks(user_tid)
     stats = generate_task_statistics(tasks)
     context.user_data['tasks'] = tasks
-    msg = await update.message.reply_text(format_task_statistics_message(stats), reply_markup=task_menu())
+    msg = await update.effective_user.send_message(format_task_statistics_message(stats), reply_markup=task_menu())
     return ConversationHandler.END
 
 

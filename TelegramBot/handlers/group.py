@@ -38,12 +38,12 @@ async def group_command(update: Update, context: CallbackContext) -> int:
     if created_group:
         context.user_data['my_group'] = created_group
     if not created_group and not user_groups and not user_data.is_premium():
-        await update.message.reply_text("Вы не состоите в группах и у вас нет премиума для создания группы.",
-                                        reply_markup=main_menu())
+        await update.effective_user.send_message("Вы не состоите в группах и у вас нет премиума для создания группы.",
+                                                 reply_markup=main_menu())
         return ConversationHandler.END
 
-    await update.message.reply_text("Выберите группу для управления:",
-                                    reply_markup=select_group_keyboard(user_data, created_group, user_groups))
+    await update.effective_user.send_message("Выберите группу для управления:",
+                                             reply_markup=select_group_keyboard(user_data, created_group, user_groups))
     return ConversationHandler.END
 
 

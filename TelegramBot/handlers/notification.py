@@ -6,7 +6,7 @@ from TelegramBot.utils.api import update_user_notifications
 
 
 async def notifications_command(update: Update, context: CallbackContext) -> int:
-    await update.message.reply_text("Выберите настройки уведомлений:", reply_markup=notifications_keyboard())
+    await update.effective_user.send_message("Выберите настройки уведомлений:", reply_markup=notifications_keyboard())
     return ConversationHandler.END
 
 
