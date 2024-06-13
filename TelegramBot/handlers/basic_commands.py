@@ -21,7 +21,7 @@ async def start_command(update: Update, context: CallbackContext) -> None:
         return
 
     if await check_and_create_user(user_tid, user_name):
-        await update.message.reply_text(f"Добро пожаловать, {user_name}!"
+        await update.message.reply_text(f"Добро пожаловать, {user_name}!\n\n"
                                         f"Инструкция доступна по команде /help. Или если всё знакомо, можно сразу "
                                         f"начинать пользоваться", reply_markup=main_menu())
     else:
