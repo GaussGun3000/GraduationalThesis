@@ -284,7 +284,7 @@ async def confirm_category_edit(update: Update, context: CallbackContext):
     category.budget_limit = new_category.get('budget_limit',  category.budget_limit)
     context.user_data['edited_category'] = category
     confirmation_message = (
-        "Подтвердите создание категории:\n"
+        "Подтвердите изменение категории:\n"
         f"Название: {category.name}\n"
         f"Описание: {category.description}\n"
         f"Лимит: {category.budget_limit}")

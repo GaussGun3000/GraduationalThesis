@@ -103,7 +103,6 @@ async def task_main_menu_callback(update: Update, context: CallbackContext) -> i
 async def select_task(update: Update, context: CallbackContext) -> int:
     user_input = update.message.text
     tasks_selected = context.user_data.get('tasks_selected', [])
-
     try:
         index = int(user_input.split(" - ")[0]) - 1
         selected_task = tasks_selected[index]
