@@ -1,5 +1,6 @@
 from telegram import Update
 from telegram.ext import CallbackContext, ConversationHandler
+from telegram.error import BadRequest
 
 
 def reset_financial_context(context: CallbackContext):
@@ -56,7 +57,7 @@ async def error_handler(update: Update, context: CallbackContext) -> int:
         await query.answer()
         try:
             await query.message.delete()
-        except telegram.error.BadRequest:
+        except BadRequest:
             pass
         await update.effective_user.send_message("Что-то пошло не так. Вы вернулись в главное меню.")
     else:

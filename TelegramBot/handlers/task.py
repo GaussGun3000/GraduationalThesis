@@ -21,6 +21,13 @@ db_to_user_recurring_map = {
     "monthly": "Ежемесячно"
 }
 
+recurring_map = {
+    "разовая": "False",
+    "ежедневно": "daily",
+    "еженедельно": "weekly",
+    "ежемесячно": "monthly"
+}
+
 
 """Viewing and completing tasks"""
 (SELECT_TASK, CREATE_TASK_NAME, CREATE_TASK_DESCRIPTION, CREATE_TASK_DEADLINE, CREATE_TASK_RECURRING,
@@ -93,7 +100,7 @@ async def task_main_menu_callback(update: Update, context: CallbackContext) -> i
         await update.effective_user.send_message("Выберите задачу: ",
                                                  reply_markup=active_tasks_keyboard(tasks_sorted))
     elif query.data == 'archive_tasks':
-        active_tasks = [task for task in context.user_data.get('tasks', []) if task.status not in ['active', ]]
+        active_tasks = [task for task in context.user_data.get('tasks', []) if task.status not in ['open', ]]
         active_tasks_sorted = sorted(active_tasks, key=lambda x: isoparse(x.deadline))
         context.user_data['tasks_selected'] = active_tasks_sorted
         await update.effective_user.send_message("Выберите задачу: ",
@@ -286,14 +293,7 @@ async def input_task_deadline(update: Update, context: CallbackContext) -> int:
 
 
 async def input_task_recurring(update: Update, context: CallbackContext) -> int:
-    recurring_map = {
-        "Разовая": "",
-        "Ежедневно": "daily",
-        "Еженедельно": "weekly",
-        "Ежемесячно": "monthly"
-    }
-
-    recurring = update.message.text
+    recurring = update.message.text.lower()
     if recurring in recurring_map:
         context.user_data['new_task']['recurring'] = recurring_map[recurring]
         retval = await confirm_task_creation(update, context)
