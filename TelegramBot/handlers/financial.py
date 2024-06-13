@@ -35,7 +35,7 @@ async def get_finance_statistics(financial_info: Financial) -> str:
 
 async def get_statistics_by_categories(context: CallbackContext) -> str:
     financial_info = context.user_data.get('financial')
-    statistics_message = "Статистика расходов:\n"
+    statistics_message = "Статистика расходов:\n\n"
     warning_threshold = 0.9
     today = datetime.now(timezone.utc)
     reset_day = int(financial_info.reset_day)
@@ -56,7 +56,7 @@ async def get_statistics_by_categories(context: CallbackContext) -> str:
             warning_icon = "🛑"
         elif total_expense >= category.budget_limit * warning_threshold:
             warning_icon = "⚠️"
-        statistics_message += f"{category.name}: {total_expense}/{category.budget_limit} {warning_icon}\n"
+        statistics_message += f"🔘 {category.name}: {total_expense}/{category.budget_limit} {warning_icon}\n"
     return statistics_message
 
 
