@@ -54,7 +54,10 @@ async def error_handler(update: Update, context: CallbackContext) -> int:
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        await query.message.delete()
+        try:
+            await query.message.delete()
+        except telegram.error.BadRequest:
+            pass
         await update.effective_user.send_message("Что-то пошло не так. Вы вернулись в главное меню.")
     else:
         await update.message.reply_text("Что-то пошло не так. Вы вернулись в главное меню.")
