@@ -44,7 +44,10 @@ async def get_user_by_oid(user_oid: str) -> User | None:
 async def create_user(user_data: dict):
     url = f"{API_BASE_URL}/user"
     async with session.post(url, json=user_data, headers=HEADERS) as response:
-        return response
+        if response.status != 201:
+            return None
+        data = await response.json()
+        return data
 
 
 async def check_and_create_user(user_tid, user_name):
@@ -61,9 +64,8 @@ async def check_and_create_user(user_tid, user_name):
             premium_expiry_date="",
             last_active=current_date,
             notification_settings={"notifications": "all"})
-        response = await create_user(new_user.to_request_dict())
-        if response.status == 201:
-            data = await response.json()
+        data = await create_user(new_user.to_request_dict())
+        if data:
             return data.get('user_oid')
         else:
             return None
@@ -146,8 +148,8 @@ async def get_financial_info(user_id: int = None, group_oid: str = None) -> Fina
                 name=category['name'],
                 description=category['description'],
                 budget_limit=category['budget_limit'],
-                expenses=[Expense(**expense) for expense in category['expenses']]
-            ) for category in data['categories']]
+                expenses=[Expense(**expense) for expense in category.get('expenses', [])]
+            ) for category in data.get('categories', [])]
             return Financial(
                 financial_oid=data['financial_oid'],
                 categories=categories,

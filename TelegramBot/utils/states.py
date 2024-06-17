@@ -1,6 +1,10 @@
+import logging
+
 from telegram import Update
 from telegram.ext import CallbackContext, ConversationHandler
 from telegram.error import BadRequest
+
+from TelegramBot.keyboards.inline_kb import main_menu
 
 
 def reset_financial_context(context: CallbackContext):
@@ -51,7 +55,8 @@ def reset_task_context(context: CallbackContext):
 
 async def error_handler(update: Update, context: CallbackContext) -> int:
     context.user_data.clear()
-
+    logger = logging.getLogger(__name__)
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
     if update.callback_query:
         query = update.callback_query
         await query.answer()
@@ -61,7 +66,8 @@ async def error_handler(update: Update, context: CallbackContext) -> int:
             pass
         await update.effective_user.send_message("Что-то пошло не так. Вы вернулись в главное меню.")
     else:
-        await update.message.reply_text("Что-то пошло не так. Вы вернулись в главное меню.")
+        await update.message.reply_text("Что-то пошло не так. Вы вернулись в главное меню.",
+                                        reply_markup=main_menu())
 
     return ConversationHandler.END
 

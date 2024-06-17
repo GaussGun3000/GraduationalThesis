@@ -93,6 +93,21 @@ async def send_categories_stats(update: Update, context: CallbackContext, orig_b
     return ConversationHandler.END
 
 
+async def handle_new_expense(update, context):
+    financial_info = context.user_data['financial']
+    categories = financial_info.categories
+    if len(categories) == 0:
+        context.user_data['back_message'] = {'text': await get_finance_statistics(financial_info),
+                                             'reply_markup': financial_menu()}
+        await update.effective_user.send_message("У вас не создано ни одной категории",
+                                                 reply_markup=back_or_exit())
+        return BACK_OR_EXIT
+    context.user_data['add_expenses'] = True
+    await update.effective_user.send_message("Выберите категорию для указания расходов",
+                                             reply_markup=generate_category_keyboard(categories))
+    return SELECT_CATEGORY
+
+
 async def finance_menu_callback(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     await query.answer()
@@ -100,12 +115,7 @@ async def finance_menu_callback(update: Update, context: CallbackContext) -> int
     if query.data == 'finance_stats':
         return await send_categories_stats(update, context, query.message.text)
     elif query.data == 'finance_expense':
-        financial_info = context.user_data['financial']
-        categories = financial_info.categories
-        context.user_data['add_expenses'] = True
-        await query.message.reply_text("Выберите категорию для указания расходов",
-                                       reply_markup=generate_category_keyboard(categories))
-        return SELECT_CATEGORY
+        return await handle_new_expense(update, context)
     elif query.data == 'finance_categories':
         await query.message.reply_text("Выберите действие:", reply_markup=category_menu())
         return CATEGORY_MENU
@@ -241,10 +251,10 @@ async def handle_category_confirm(update: Update, context: CallbackContext) -> i
         financial_info.categories.append(new_category)
         success = await create_category(financial_info, new_category)
         if success:
-            await query.message.reply_text("Категория создана.", reply_markup=ReplyKeyboardRemove())
+            await query.message.reply_text("Категория создана.", reply_markup=main_menu())
         else:
             await query.message.reply_text("Не удалось создать категорию. Попробуйте снова.",
-                                           reply_markup=ReplyKeyboardRemove())
+                                           reply_markup=main_menu())
         reset_financial_context(context)
         return ConversationHandler.END
     elif query.data == 'fin_confirm_edit':
@@ -276,12 +286,12 @@ async def handle_edit_fin_option(update: Update, context: CallbackContext) -> in
 
 async def confirm_category_edit(update: Update, context: CallbackContext):
     old_category = context.user_data.get('selected_category')
-    category = Category(category_id='-', name=old_category.name,  budget_limit=old_category.budget_limit,
+    category = Category(category_id='-', name=old_category.name, budget_limit=old_category.budget_limit,
                         expenses=old_category.expenses, description=old_category.description)
     new_category = context.user_data.get('new_category')
     category.name = new_category.get('name', category.name)
-    category.description = new_category.get('description',  category.description)
-    category.budget_limit = new_category.get('budget_limit',  category.budget_limit)
+    category.description = new_category.get('description', category.description)
+    category.budget_limit = new_category.get('budget_limit', category.budget_limit)
     context.user_data['edited_category'] = category
     confirmation_message = (
         "Подтвердите изменение категории:\n"
@@ -302,15 +312,16 @@ async def handle_category_edit_confirm(update: Update, context: CallbackContext)
         success = await update_category(financial_info, old_category.name,
                                         old_category.description, new_category)
         if success:
-            await query.message.reply_text("Категория обновлена", reply_markup=ReplyKeyboardRemove())
+            await query.message.reply_text("Категория обновлена", reply_markup=main_menu())
         else:
             await query.message.reply_text("Не удалось обновить категорию. Попробуйте снова.",
-                                           reply_markup=ReplyKeyboardRemove())
+                                           reply_markup=main_menu())
         reset_financial_context(context)
         return ConversationHandler.END
     elif query.data == 'fin_confirm_edit':
         await query.message.reply_text("Что вы хотите изменить?", reply_markup=edit_fin_options_keyboard())
         return SELECT_EDIT_OPTION
+
 
 """EXPENSE_INPUT"""
 
@@ -352,10 +363,10 @@ async def handle_expense_confirm(update: Update, context: CallbackContext):
                               date=datetime.now(timezone.utc).isoformat(),
                               user_oid=user.user_oid)
         if await create_expense(context.user_data.get('financial').financial_oid, category, new_expense):
-            await query.message.reply_text("Расход добавлен.", reply_markup=ReplyKeyboardRemove())
+            await query.message.reply_text("Расход добавлен.", reply_markup=main_menu())
         else:
             await query.message.reply_text("Не удалось добавить расход. Попробуйте снова.",
-                                           reply_markup=ReplyKeyboardRemove())
+                                           reply_markup=main_menu())
         reset_financial_context(context)
         return ConversationHandler.END
     elif query.data == 'expense_confirm_edit':
@@ -377,7 +388,8 @@ async def back_or_exit_handler(update: Update, context: CallbackContext) -> int:
         return previous_state
     elif action == 'exit':
         context.user_data.clear()
-        await query.message.reply_text("Вы завершили взаимодействие и вернулись в главное меню.", reply_markup=main_menu())
+        await query.message.reply_text("Вы завершили взаимодействие и вернулись в главное меню.",
+                                       reply_markup=main_menu())
         return ConversationHandler.END
 
 

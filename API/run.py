@@ -6,7 +6,7 @@ app = create_app()
 
 @app.route('/')
 def hello_world():  # put application's code here
-    return 'Hello World!'
+    return 'API module is running'
 
 
 if __name__ == '__main__':

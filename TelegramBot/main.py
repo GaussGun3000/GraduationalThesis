@@ -16,6 +16,12 @@ from TelegramBot.utils.api import get_active_tasks, update_task, get_user_by_oid
 from TelegramBot.utils.states import error_handler
 
 logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    filename=R'E:\Projects\Python\GraduationalThesis\TelegramBot\error.log',
+    level=logging.ERROR,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 application = ApplicationBuilder().token(BOT_TOKEN).build()
 
 
@@ -85,7 +91,7 @@ def main():
     application.add_handler(group_conversation_handler)
     application.add_handler(group_task_conversation_handler)
     application.add_handler(group_financial_conversation_manager)
-    application.add_error_handler(error_handler)
+   # application.add_error_handler(error_handler)
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(send_task_notifications, 'interval', minutes=5)

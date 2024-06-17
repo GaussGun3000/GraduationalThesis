@@ -11,7 +11,8 @@ from ..utils.api import get_user_tasks, update_task, create_task, get_user, dele
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from ..keyboards.reply_kb import active_tasks_keyboard, recurring_keyboard, member_list_keyboard
-from ..keyboards.inline_kb import task_menu, task_action_buttons, confirmation_keyboard, edit_task_options_keyboard
+from ..keyboards.inline_kb import task_menu, task_action_buttons, confirmation_keyboard, edit_task_options_keyboard, \
+    main_menu
 from ..models import Task, GroupMember
 from ..utils.states import reset_task_context, reset_all_context
 
@@ -326,9 +327,9 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> int:
         task = Task(task_oid='-', **new_task_data)
         response = await create_task(task)
         if response.status == 201:
-            await query.message.reply_text("Задача создана.", reply_markup=ReplyKeyboardRemove())
+            await query.message.reply_text("Задача создана.", reply_markup=main_menu())
         else:
-            await query.message.reply_text("Не удалось создать задачу. Попробуйте снова.", reply_markup=ReplyKeyboardRemove())
+            await query.message.reply_text("Не удалось создать задачу. Попробуйте снова.", reply_markup=main_menu())
         reset_task_context(context)
         return ConversationHandler.END
     elif query.data == 'task_confirm_edit':
@@ -411,10 +412,10 @@ async def handle_edit_confirmation(update: Update, context: CallbackContext) -> 
         task.last_updated = datetime.now(timezone.utc).isoformat()
         success = await update_task(task)
         if success:
-            await query.message.reply_text("Задача обновлена", reply_markup=ReplyKeyboardRemove())
+            await query.message.reply_text("Задача обновлена", reply_markup=main_menu())
         else:
             await query.message.reply_text("Не удалось обновить задачу. Попробуйте снова.",
-                                           reply_markup=ReplyKeyboardRemove())
+                                           reply_markup=main_menu())
         reset_task_context(context)
         return ConversationHandler.END
     elif query.data == 'task_confirm_edit':

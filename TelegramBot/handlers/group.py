@@ -394,7 +394,7 @@ async def handle_task_action_selection(update: Update, context: CallbackContext)
 async def create_new_financial(group_oid: str):
     reset_day = datetime.now(timezone.utc).strftime('%d')
     financial = Financial(financial_oid='-',
-                          categories=list(),
+                          categories=[],
                           reset_day=reset_day,
                           group_oid=group_oid)
     oid = await create_financial(financial)
@@ -404,6 +404,13 @@ async def create_new_financial(group_oid: str):
 async def handle_new_expense(update, context):
     financial_info = context.user_data['financial']
     categories = financial_info.categories
+    if len(categories) == 0:
+        is_admin = context.user_data.get('member_info').role in ['admin', 'creator']
+        context.user_data['back_message'] = {'text': await get_finance_statistics(financial_info),
+                                             'reply_markup': group_financial_menu(is_admin)}
+        await update.effective_user.send_message("У вас не создано ни одной категории",
+                                                 reply_markup=back_or_exit())
+        return BACK_OR_EXIT
     context.user_data['add_expenses'] = True
     await update.effective_user.send_message("Выберите категорию для указания расходов",
                                              reply_markup=generate_category_keyboard(categories))
@@ -496,8 +503,9 @@ async def input_group_description(update: Update, context: CallbackContext) -> i
         await group_confirmation_message(update, context)
         return CONFIRM_GROUP_CREATION
     kb = ReplyKeyboardMarkup([["Пропустить"]], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("Введите список идентификаторов пользователей (TID), разделённых запятыми,"
-                                    " или нажмите 'Пропустить':", reply_markup=kb)
+    await update.message.reply_text("Введите список идентификаторов пользователей (Telegram ID), "
+                                    "разделённых запятыми, или нажмите 'Пропустить' (это можно сделать позже, после"
+                                    " создания также появится пригласительная ссылка в группу)", reply_markup=kb)
     return ADD_GROUP_MEMBERS
 
 
@@ -530,14 +538,16 @@ async def input_group_members(update: Update, context: CallbackContext) -> int:
             member_tids = [int(tid.strip()) for tid in user_input.split(',')]
             members = await form_member_list(member_tids)
             if isinstance(members, int):
-                await update.message.reply_text(f"Пользователь с TID {members} не найден. Повторите ввод.")
+                await update.message.reply_text(f"Пользователь с Telegram ID {members} не найден. Повторите ввод.")
                 return ADD_GROUP_MEMBERS
             context.user_data['new_group']['members'] = members
             await group_confirmation_message(update, context)
             return CONFIRM_GROUP_CREATION
         except ValueError:
             await update.message.reply_text(
-                "Неправильный формат. Пожалуйста, введите список идентификаторов пользователей (TID), разделённых запятыми, или нажмите 'Пропустить':")
+                "Неправильный формат. Пожалуйста, введите список идентификаторов пользователей (Telegram ID), "
+                "разделённых запятыми, или нажмите 'Пропустить' (это можно сделать позже, после создания также появится"
+                " пригласительная ссылка в группу)")
             return ADD_GROUP_MEMBERS
 
 
@@ -561,7 +571,7 @@ async def confirm_group_creation(update: Update, context: CallbackContext) -> in
         if success:
             await create_new_financial(group_oid)
             await query.message.reply_text(f"Создана новая группа. Пригласительная ссылка:"
-                                           f" {generate_invite_link(group_oid)}")
+                                           f" {generate_invite_link(group_oid)}", reply_markup=main_menu())
         else:
             await query.message.reply_text("Не удалось создать группу. Попробуйте снова.")
         reset_group_context(context)
